@@ -1,0 +1,34 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  flask_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: flask_app
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/odds_db
+    depends_on:
+      - mongo
+
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    container_name: scraper
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/odds_db
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:

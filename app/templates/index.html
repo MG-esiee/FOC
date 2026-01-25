@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>FOC - Matches</title>
+</head>
+<body>
+    <h1>Matches de Ligue 1</h1>
+    <table border="1">
+        <tr>
+            <th>Heure</th>
+            <th>Équipe Domicile</th>
+            <th>Équipe Extérieur</th>
+            <th>1</th>
+            <th>N</th>
+            <th>2</th>
+        </tr>
+        {% for match in matches %}
+        <tr>
+            <td>{{ match.time }}</td>
+            <td>{{ match.home_team }}</td>
+            <td>{{ match.away_team }}</td>
+            <td>{{ match.odd_1 }}</td>
+            <td>{{ match.odd_x }}</td>
+            <td>{{ match.odd_2 }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

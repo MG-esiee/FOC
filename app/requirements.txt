@@ -3,3 +3,4 @@ selenium
 pymongo
 python-dotenv
 plotly
+dnspython==2.4.2

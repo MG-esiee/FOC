@@ -1,0 +1,28 @@
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Installer Chromium + utilitaires
+RUN apt-get update && apt-get install -y \
+    chromium \
+    chromium-driver \
+    wget \
+    curl \
+    unzip \
+    gnupg2 \
+    ca-certificates \
+    fonts-liberation \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
+# Copier requirements et installer Python packages
+COPY scraper/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le scraper
+COPY scraper/scraper_mongo.py .
+
+# Variables d'environnement pour Selenium
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROME_DRIVER=/usr/bin/chromedriver
+
+CMD ["python", "scraper_mongo.py"]
