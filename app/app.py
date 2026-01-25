@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 # Connexion MongoDB
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/odds_db")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017/odds_db")  # utiliser le service Docker
 client = MongoClient(MONGO_URI)
 db = client["odds_db"]
 collection = db["matches"]

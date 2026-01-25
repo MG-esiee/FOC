@@ -12,8 +12,7 @@ client = MongoClient("mongodb://mongodb:27017")  # utiliser le nom du service do
 db = client["odds_db"]
 collection = db["matches"]
 
-
-# Créer les options Chrome **avant** de les configurer
+# Options Chrome
 chrome_options = Options()
 chrome_options.binary_location = "/usr/bin/chromium"
 chrome_options.add_argument("--headless")
@@ -26,7 +25,6 @@ driver = webdriver.Chrome(
     service=Service("/usr/bin/chromedriver"),
     options=chrome_options
 )
-
 
 driver.get("https://www.oddsportal.com/soccer/france/ligue-1/")
 WebDriverWait(driver, 20).until(
@@ -49,13 +47,14 @@ for match in matches_elements:
         continue
     seen_matches.add(match_id)
 
+    # Heure du match
     try:
         match_time = match.find_element(By.CSS_SELECTOR, "div[data-testid='time-item'] p").text
     except:
         match_time = "NON TROUVÉ"
 
+    # Cotes
     try:
-        
         odds_elements = match.find_elements(By.CSS_SELECTOR, "div[data-testid^='odd-container'] p")
         if len(odds_elements) >= 3:
             odd_1 = odds_elements[0].text
@@ -63,9 +62,18 @@ for match in matches_elements:
             odd_2 = odds_elements[2].text
         else:
             odd_1 = odd_x = odd_2 = "NON TROUVÉ"
-
     except:
         odd_1 = odd_x = odd_2 = "NON TROUVÉ"
+
+    # Scores (mettre 0 si absent)
+    # Récupération des scores (mettre "-" si absent)
+    try:
+        score_elements = match.find_elements(By.CSS_SELECTOR, "div.hidden")
+        score_home = score_elements[0].text if len(score_elements) >= 2 else "-"
+        score_away = score_elements[1].text if len(score_elements) >= 2 else "-"
+    except:
+        score_home = "-"
+        score_away = "-"
 
     match_data = {
         "home_team": home_team,
@@ -73,10 +81,16 @@ for match in matches_elements:
         "time": match_time,
         "odd_1": odd_1,
         "odd_x": odd_x,
-        "odd_2": odd_2
+        "odd_2": odd_2,
+        "score_home": score_home,
+        "score_away": score_away
     }
 
-    collection.update_one({"home_team": home_team, "away_team": away_team}, {"$set": match_data}, upsert=True)
+    collection.update_one(
+        {"home_team": home_team, "away_team": away_team},
+        {"$set": match_data},
+        upsert=True
+    )
 
 driver.quit()
 print("Scraping terminé et stocké dans MongoDB !")
