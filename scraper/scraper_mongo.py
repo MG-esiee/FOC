@@ -166,10 +166,23 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                         except:
                             match_time = "00:00"
                         
-                        # Détecter si le match est en cours
-                        is_live = "'" in match_time or match_time.lower() in ["ht", "ft", "pen"]
+                        # Détecter si le match est en cours ou terminé
+                        is_live = "'" in match_time or match_time.lower() == "ht"
+                        is_finished = match_time.lower() in ["ft", "fin", "finished", "aet", "pen"]
                         
-                        # Match ID unique
+                        # Ignorer les matchs terminés
+                        if is_finished:
+                            # Supprimer le match terminé de la base
+                            collection.delete_one({
+                                "league_id": league_id,
+                                "home_team": home_team,
+                                "away_team": away_team,
+                                "date": current_date
+                            })
+                            continue
+                        
+                        # Match ID unique - Pour les live, on utilise uniquement league+teams+date
+                        # pour éviter les doublons à chaque minute
                         if is_live:
                             match_id = f"{league_id}_{home_team}_{away_team}_{current_date}_LIVE"
                         else:
@@ -291,6 +304,15 @@ def main():
     except Exception as e:
         print(f"[FAIL] Impossible de se connecter à MongoDB: {e}")
         sys.exit(1)
+    
+    # Nettoyer les matchs de plus de 3 heures (probablement terminés)
+    three_hours_ago = datetime.now() - timedelta(hours=3)
+    deleted = collection.delete_many({
+        "is_live": True,
+        "datetime": {"$lt": three_hours_ago}
+    })
+    if deleted.deleted_count > 0:
+        print(f"[INFO] {deleted.deleted_count} ancien(s) match(s) live nettoyé(s)")
     
     # Récupérer la ligue à scraper depuis les arguments
     if len(sys.argv) > 1:

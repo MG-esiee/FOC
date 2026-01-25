@@ -12,7 +12,7 @@
         <div class="top-bar-content">
             <div class="logo-section">
                 <a href="/" class="logo">
-                    <div class="logo-icon">F</div>
+                    <img src="{{ url_for('static', filename='logo_foc.png') }}" alt="FOC Logo" class="logo-image">
                     <div class="logo-text">
                         <span class="logo-main">FOC</span>
                         <span class="logo-sub">First On Cotes</span>
@@ -42,11 +42,11 @@
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-primary" onclick="refreshData()">
-                        <span id="refresh-icon">🔄</span>
+                        <span id="refresh-icon">↻</span>
                         <span id="refresh-text">Actualiser</span>
                     </button>
                     <button class="btn btn-secondary">
-                        <span>⭐</span>
+                        <span>★</span>
                         Favoris
                     </button>
                 </div>
@@ -61,7 +61,7 @@
                     </div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-icon">🔴</div>
+                    <div class="stat-icon">●</div>
                     <div class="stat-info">
                         <span class="stat-label">En Direct</span>
                         <span class="stat-value">{{ matches|selectattr('is_live')|list|length }}</span>
@@ -82,10 +82,10 @@
             <!-- Filters -->
             <div class="filters-bar">
                 <button class="filter-btn active">Tous les matchs</button>
-                <button class="filter-btn">🔴 Live</button>
-                <button class="filter-btn">📅 Aujourd'hui</button>
-                <button class="filter-btn">📆 Cette semaine</button>
-                <button class="filter-btn">⭐ Favoris</button>
+                <button class="filter-btn">● Live</button>
+                <button class="filter-btn">Aujourd'hui</button>
+                <button class="filter-btn">Cette semaine</button>
+                <button class="filter-btn">★ Favoris</button>
             </div>
 
             {% if matches %}
@@ -132,7 +132,7 @@
             {% else %}
             <!-- Empty State -->
             <div class="empty-state">
-                <div class="empty-state-icon">⚽</div>
+                <div class="empty-state-icon">○</div>
                 <h3>Aucun match disponible</h3>
                 <p>Les matchs seront affichés ici dès qu'ils seront disponibles</p>
             </div>
