@@ -1,0 +1,5 @@
+flask
+selenium
+pymongo
+python-dotenv
+plotly
