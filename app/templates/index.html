@@ -19,10 +19,11 @@
                     </div>
                 </a>
                 <nav class="nav-links">
-                    <a href="/" class="nav-link active">Ligue 1</a>
-                    <a href="#" class="nav-link">Premier League</a>
-                    <a href="#" class="nav-link">La Liga</a>
-                    <a href="#" class="nav-link">Live</a>
+                    {% for lid, linfo in all_leagues.items() %}
+                    <a href="/{{ lid }}" class="nav-link {% if lid == current_league %}active{% endif %}">
+                        {{ linfo.icon }} {{ linfo.name }}
+                    </a>
+                    {% endfor %}
                 </nav>
             </div>
         </div>
@@ -33,16 +34,16 @@
         <div class="header">
             <div class="header-top">
                 <div class="header-title">
-                    <div class="league-icon">⚽</div>
+                    <div class="league-icon">{{ league_info.icon }}</div>
                     <div class="header-text">
-                        <h1>Ligue 1 - Cotes en Direct</h1>
-                        <p>Mise à jour en temps réel</p>
+                        <h1>{{ league_info.name }} - Cotes en Direct</h1>
+                        <p>{{ league_info.country }} • Mise à jour en temps réel</p>
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button class="btn btn-primary" onclick="location.reload()">
-                        <span>🔄</span>
-                        Actualiser
+                    <button class="btn btn-primary" onclick="refreshData()">
+                        <span id="refresh-icon">🔄</span>
+                        <span id="refresh-text">Actualiser</span>
                     </button>
                     <button class="btn btn-secondary">
                         <span>⭐</span>
@@ -140,6 +141,49 @@
     </div>
 
     <script>
+        const currentLeague = "{{ current_league }}";
+        
+        // Fonction pour actualiser les données avec scraping
+        async function refreshData() {
+            const btn = document.querySelector('.btn-primary');
+            const icon = document.getElementById('refresh-icon');
+            const text = document.getElementById('refresh-text');
+            
+            // Animation de chargement
+            icon.style.animation = 'spin 1s linear infinite';
+            text.textContent = 'Scraping...';
+            btn.disabled = true;
+            
+            try {
+                // Appeler l'API de scraping
+                const response = await fetch(`/api/refresh/${currentLeague}`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    text.textContent = 'Mise à jour...';
+                    // Attendre 5 secondes pour laisser le scraping se faire
+                    setTimeout(() => {
+                        location.reload();
+                    }, 5000);
+                } else {
+                    text.textContent = 'Erreur';
+                    setTimeout(() => {
+                        text.textContent = 'Actualiser';
+                        icon.style.animation = '';
+                        btn.disabled = false;
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                text.textContent = 'Erreur';
+                setTimeout(() => {
+                    text.textContent = 'Actualiser';
+                    icon.style.animation = '';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+        
         // Auto-refresh toutes les 30 secondes
         setTimeout(() => {
             location.reload();
@@ -155,5 +199,12 @@
             });
         });
     </script>
+    
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </body>
 </html>
