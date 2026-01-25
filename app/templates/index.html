@@ -8,6 +8,7 @@
     <h1>Matches de Ligue 1</h1>
     <table border="1">
         <tr>
+            <th>Date</th>
             <th>Heure</th>
             <th>Équipe Domicile</th>
             <th>Score Domicile</th>
@@ -19,6 +20,7 @@
         </tr>
         {% for match in matches %}
         <tr>
+            <td>{{ match.date }}</td>
             <td>{{ match.time }}</td>
             <td>{{ match.home_team }}</td>
             <td>{{ match.score_home }}</td>
