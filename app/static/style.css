@@ -1,0 +1,496 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0f0f0f;
+    min-height: 100vh;
+    padding: 0;
+}
+
+.top-bar {
+    background: #1a1a1a;
+    border-bottom: 1px solid #2a2a2a;
+    padding: 12px 0;
+}
+
+.top-bar-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+}
+
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.logo-main {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.logo-sub {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: -2px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 30px;
+}
+
+.nav-link {
+    color: #888;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.nav-link:hover {
+    color: #dc2626;
+}
+
+.nav-link.active {
+    color: white;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+}
+
+.header {
+    padding: 40px 0 30px;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.league-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.header-text h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 4px;
+}
+
+.header-text p {
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.3);
+}
+
+.btn-secondary {
+    background: #2a2a2a;
+    color: #888;
+}
+
+.btn-secondary:hover {
+    background: #333;
+    color: white;
+}
+
+.stats-bar {
+    display: flex;
+    gap: 40px;
+    padding: 20px 30px;
+    background: #1a1a1a;
+    border-radius: 12px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(220, 38, 38, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 18px;
+    color: white;
+    font-weight: 700;
+}
+
+.content {
+    padding: 30px 0;
+}
+
+.filters-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: #1a1a1a;
+    border-radius: 12px;
+}
+
+.filter-btn {
+    padding: 10px 20px;
+    background: transparent;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    color: #888;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.filter-btn.active {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: white;
+}
+
+.table-wrapper {
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #2a2a2a;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background: #0f0f0f;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+thead th {
+    padding: 18px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+}
+
+tbody tr {
+    border-bottom: 1px solid #2a2a2a;
+    transition: all 0.2s;
+}
+
+tbody tr:last-child {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background: rgba(220, 38, 38, 0.05);
+}
+
+tbody tr.live-match {
+    background: rgba(220, 38, 38, 0.08);
+}
+
+tbody tr.live-match:hover {
+    background: rgba(220, 38, 38, 0.12);
+}
+
+tbody td {
+    padding: 20px;
+    font-size: 14px;
+    color: #ccc;
+}
+
+.date-cell {
+    font-weight: 600;
+    color: #888;
+    font-size: 13px;
+}
+
+.time-cell {
+    font-weight: 600;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #dc2626;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.live-dot {
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+.team-cell {
+    font-weight: 600;
+    color: white;
+    font-size: 15px;
+}
+
+.score-cell {
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+    text-align: center;
+    min-width: 40px;
+}
+
+.vs-separator {
+    text-align: center;
+    color: #444;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.odd-cell {
+    text-align: center;
+    font-weight: 700;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 12px 16px;
+    min-width: 70px;
+}
+
+.odd-cell:hover {
+    background: rgba(220, 38, 38, 0.15);
+    color: #dc2626;
+}
+
+.odds-group {
+    display: flex;
+    gap: 8px;
+}
+
+.odd-box {
+    background: #2a2a2a;
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.odd-box:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.3);
+}
+
+.odd-label {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.odd-value {
+    font-size: 16px;
+    color: white;
+    font-weight: 700;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .container {
+        padding: 0 20px;
+    }
+    
+    .stats-bar {
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    
+    table {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    
+    .stats-bar {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .filters-bar {
+        overflow-x: auto;
+    }
+    
+    tbody td {
+        padding: 15px 10px;
+    }
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: #666;
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    color: #888;
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    color: #666;
+}

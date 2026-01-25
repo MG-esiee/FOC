@@ -2,35 +2,158 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>FOC - Matches</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOC - First On Cotes | Ligue 1</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Matches de Ligue 1</h1>
-    <table border="1">
-        <tr>
-            <th>Date</th>
-            <th>Heure</th>
-            <th>Équipe Domicile</th>
-            <th>Score Domicile</th>
-            <th>Équipe Extérieur</th>
-            <th>Score Extérieur</th>
-            <th>1</th>
-            <th>N</th>
-            <th>2</th>
-        </tr>
-        {% for match in matches %}
-        <tr>
-            <td>{{ match.date }}</td>
-            <td>{{ match.time }}</td>
-            <td>{{ match.home_team }}</td>
-            <td>{{ match.score_home }}</td>
-            <td>{{ match.away_team }}</td>
-            <td>{{ match.score_away }}</td>
-            <td>{{ match.odd_1 }}</td>
-            <td>{{ match.odd_x }}</td>
-            <td>{{ match.odd_2 }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <!-- Top Navigation Bar -->
+    <div class="top-bar">
+        <div class="top-bar-content">
+            <div class="logo-section">
+                <a href="/" class="logo">
+                    <div class="logo-icon">F</div>
+                    <div class="logo-text">
+                        <span class="logo-main">FOC</span>
+                        <span class="logo-sub">First On Cotes</span>
+                    </div>
+                </a>
+                <nav class="nav-links">
+                    <a href="/" class="nav-link active">Ligue 1</a>
+                    <a href="#" class="nav-link">Premier League</a>
+                    <a href="#" class="nav-link">La Liga</a>
+                    <a href="#" class="nav-link">Live</a>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="header-top">
+                <div class="header-title">
+                    <div class="league-icon">⚽</div>
+                    <div class="header-text">
+                        <h1>Ligue 1 - Cotes en Direct</h1>
+                        <p>Mise à jour en temps réel</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <span>🔄</span>
+                        Actualiser
+                    </button>
+                    <button class="btn btn-secondary">
+                        <span>⭐</span>
+                        Favoris
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Matchs</span>
+                        <span class="stat-value">{{ matches|length }}</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-info">
+                        <span class="stat-label">En Direct</span>
+                        <span class="stat-value">{{ matches|selectattr('is_live')|list|length }}</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-info">
+                        <span class="stat-label">À venir</span>
+                        <span class="stat-value">{{ matches|rejectattr('is_live')|list|length }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Section -->
+        <div class="content">
+            <!-- Filters -->
+            <div class="filters-bar">
+                <button class="filter-btn active">Tous les matchs</button>
+                <button class="filter-btn">🔴 Live</button>
+                <button class="filter-btn">📅 Aujourd'hui</button>
+                <button class="filter-btn">📆 Cette semaine</button>
+                <button class="filter-btn">⭐ Favoris</button>
+            </div>
+
+            {% if matches %}
+            <!-- Matches Table -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th colspan="5">Match</th>
+                            <th>1</th>
+                            <th>X</th>
+                            <th>2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in matches %}
+                        <tr class="{% if match.is_live %}live-match{% endif %}">
+                            <td class="date-cell">{{ match.date }}</td>
+                            <td class="time-cell">
+                                {% if match.is_live %}
+                                <div class="live-indicator">
+                                    <span class="live-dot"></span>
+                                    {{ match.time }}
+                                </div>
+                                {% else %}
+                                {{ match.time }}
+                                {% endif %}
+                            </td>
+                            <td class="team-cell">{{ match.home_team }}</td>
+                            <td class="score-cell">{{ match.score_home }}</td>
+                            <td class="vs-separator">-</td>
+                            <td class="score-cell">{{ match.score_away }}</td>
+                            <td class="team-cell">{{ match.away_team }}</td>
+                            <td class="odd-cell">{{ match.odd_1 }}</td>
+                            <td class="odd-cell">{{ match.odd_x }}</td>
+                            <td class="odd-cell">{{ match.odd_2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-state-icon">⚽</div>
+                <h3>Aucun match disponible</h3>
+                <p>Les matchs seront affichés ici dès qu'ils seront disponibles</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh toutes les 30 secondes
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+
+        // Animation des cotes au clic
+        document.querySelectorAll('.odd-cell').forEach(cell => {
+            cell.addEventListener('click', function() {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = 'scale(1)';
+                }, 100);
+            });
+        });
+    </script>
 </body>
 </html>

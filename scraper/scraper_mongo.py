@@ -145,16 +145,17 @@ try:
                 score_home = "0"
                 score_away = "0"
             
-            # Datetime pour tri
+            # Datetime pour tri - matchs live en PREMIER
             try:
-                # Nettoyer match_time des caractères spéciaux pour parsing
-                clean_time = match_time
-                if "'" in match_time or match_time in ["HT", "FT", "Pen"]:
-                    clean_time = "00:00"  # Match en cours, on met une heure par défaut
-                
-                match_datetime = datetime.strptime(f"{current_date} {clean_time}", "%d %b %Y %H:%M")
+                if is_live:
+                    # Les matchs live ont la datetime la plus récente (maintenant)
+                    # Cela les met tout en haut du classement
+                    match_datetime = datetime.now()
+                else:
+                    # Matchs futurs : datetime normale
+                    match_datetime = datetime.strptime(f"{current_date} {match_time}", "%d %b %Y %H:%M")
             except:
-                match_datetime = datetime(1970, 1, 1, 0, 0)
+                match_datetime = datetime.now()
             
             match_data = {
                 "home_team": home_team,
