@@ -68,14 +68,47 @@ def parse_date(date_str):
         print(f"[WARN] Erreur parsing date '{date_str}': {e}")
         return None
 
+def clean_old_matches(collection, league_id=None):
+    """Nettoie les matchs obsolètes de la base de données"""
+    try:
+        # Supprimer les matchs de plus de 6 heures
+        six_hours_ago = datetime.now() - timedelta(hours=6)
+        
+        query = {"datetime": {"$lt": six_hours_ago}}
+        if league_id:
+            query["league_id"] = league_id
+        
+        deleted = collection.delete_many(query)
+        if deleted.deleted_count > 0:
+            print(f"[CLEAN] {deleted.deleted_count} ancien(s) match(s) supprimé(s)")
+        
+        # Supprimer les matchs marqués comme terminés
+        query_finished = {"is_finished": True}
+        if league_id:
+            query_finished["league_id"] = league_id
+        
+        deleted_finished = collection.delete_many(query_finished)
+        if deleted_finished.deleted_count > 0:
+            print(f"[CLEAN] {deleted_finished.deleted_count} match(s) terminé(s) supprimé(s)")
+            
+        return deleted.deleted_count + deleted_finished.deleted_count
+        
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du nettoyage: {e}")
+        return 0
+
 def scrape_league(league_id, league_info, collection, max_retries=3):
     """Scrape une ligue spécifique avec retry"""
+    
+    # Nettoyer les anciens matchs de cette ligue AVANT le scraping
+    print(f"[INFO] Nettoyage des anciens matchs pour {league_info['name']}...")
+    clean_old_matches(collection, league_id)
     
     for attempt in range(max_retries):
         try:
             if attempt > 0:
                 print(f"[RETRY] Tentative {attempt + 1}/{max_retries} pour {league_info['name']}...")
-                time.sleep(5)  # Attendre avant de réessayer
+                time.sleep(5)
             else:
                 print(f"\n[INFO] Scraping {league_info['name']}...")
             
@@ -100,7 +133,7 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                 
                 driver.get(league_info['url'])
                 
-                # Attendre le chargement avec timeout plus long
+                # Attendre le chargement
                 try:
                     WebDriverWait(driver, 30).until(
                         EC.presence_of_all_elements_located(
@@ -111,7 +144,6 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                     print(f"[WARN] Timeout lors du chargement de {league_info['name']}, réessai...")
                     raise
                 
-                # Attendre que la page soit stable
                 time.sleep(3)
                 
                 # Scroll pour charger tout le contenu
@@ -127,6 +159,8 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                     print(f"[WARN] Aucun élément trouvé pour {league_info['name']}")
                     raise Exception("Aucun match trouvé")
                 
+                # Garder trace des matchs scrapés pour cette session
+                scraped_matches = []
                 seen_matches = set()
                 current_date = None
                 matches_count = 0
@@ -166,23 +200,15 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                         except:
                             match_time = "00:00"
                         
-                        # Détecter si le match est en cours ou terminé
+                        # Détecter le statut du match
                         is_live = "'" in match_time or match_time.lower() == "ht"
                         is_finished = match_time.lower() in ["ft", "fin", "finished", "aet", "pen"]
                         
-                        # Ignorer les matchs terminés
+                        # IGNORER COMPLÈTEMENT les matchs terminés
                         if is_finished:
-                            # Supprimer le match terminé de la base
-                            collection.delete_one({
-                                "league_id": league_id,
-                                "home_team": home_team,
-                                "away_team": away_team,
-                                "date": current_date
-                            })
                             continue
                         
-                        # Match ID unique - Pour les live, on utilise uniquement league+teams+date
-                        # pour éviter les doublons à chaque minute
+                        # Match ID unique
                         if is_live:
                             match_id = f"{league_id}_{home_team}_{away_team}_{current_date}_LIVE"
                         else:
@@ -191,6 +217,7 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                         if match_id in seen_matches:
                             continue
                         seen_matches.add(match_id)
+                        scraped_matches.append(match_id)
                         
                         # Cotes
                         try:
@@ -237,10 +264,12 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                             "score_away": score_away,
                             "datetime": match_datetime,
                             "is_live": is_live,
+                            "is_finished": False,  # Toujours False car on ignore les matchs terminés
+                            "match_id": match_id,
                             "scraped_at": datetime.now()
                         }
                         
-                        # Clé unique
+                        # Mise à jour ou insertion
                         if is_live:
                             collection.update_one(
                                 {
@@ -272,9 +301,19 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                         continue
                     except Exception as e:
                         errors_count += 1
-                        if errors_count <= 3:  # Afficher seulement les 3 premières erreurs
+                        if errors_count <= 3:
                             print(f"[WARN] Erreur sur un match (élément {idx}): {str(e)[:100]}")
                         continue
+                
+                # IMPORTANT: Supprimer les matchs qui ne sont plus sur OddsPortal
+                # (ceux qui ne sont pas dans scraped_matches)
+                if scraped_matches:
+                    deleted_obsolete = collection.delete_many({
+                        "league_id": league_id,
+                        "match_id": {"$nin": scraped_matches}
+                    })
+                    if deleted_obsolete.deleted_count > 0:
+                        print(f"[CLEAN] {deleted_obsolete.deleted_count} match(s) obsolète(s) supprimé(s)")
                 
                 print(f"[OK] {league_info['name']}: {matches_count} matchs scrapés ({errors_count} erreurs ignorées)")
                 return matches_count
@@ -297,7 +336,7 @@ def main():
     # Connexion MongoDB
     try:
         client = MongoClient("mongodb://mongodb:27017", serverSelectionTimeoutMS=5000)
-        client.server_info()  # Test de connexion
+        client.server_info()
         db = client["odds_db"]
         collection = db["matches"]
         print("[OK] Connexion MongoDB établie")
@@ -305,20 +344,10 @@ def main():
         print(f"[FAIL] Impossible de se connecter à MongoDB: {e}")
         sys.exit(1)
     
-    # Nettoyer les matchs de plus de 3 heures (probablement terminés)
-    three_hours_ago = datetime.now() - timedelta(hours=3)
-    deleted = collection.delete_many({
-        "is_live": True,
-        "datetime": {"$lt": three_hours_ago}
-    })
-    if deleted.deleted_count > 0:
-        print(f"[INFO] {deleted.deleted_count} ancien(s) match(s) live nettoyé(s)")
-    
     # Récupérer la ligue à scraper depuis les arguments
     if len(sys.argv) > 1:
         league_id = sys.argv[1]
         if league_id in LEAGUES:
-            # Scraper une seule ligue
             scrape_league(league_id, LEAGUES[league_id], collection)
         else:
             print(f"[ERROR] Ligue inconnue: {league_id}")
@@ -326,6 +355,11 @@ def main():
     else:
         # Scraper toutes les ligues
         print("[INFO] Scraping de toutes les ligues...")
+        
+        # Nettoyage global avant de commencer
+        print("[INFO] Nettoyage global de la base de données...")
+        clean_old_matches(collection)
+        
         total = 0
         failed = []
         
@@ -334,7 +368,7 @@ def main():
             total += count
             if count == 0:
                 failed.append(league_info['name'])
-            time.sleep(3)  # Pause entre chaque ligue
+            time.sleep(3)
         
         print(f"\n[OK] Total: {total} matchs scrapés")
         if failed:
