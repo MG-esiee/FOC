@@ -52,6 +52,39 @@ def home(league_id="ligue-1"):
         all_leagues=LEAGUES
     )
 
+@app.route("/explore")
+@app.route("/explore/<league_id>")
+def explore(league_id="ligue-1"):
+    """Page pour filtrer par équipe et visualiser les cotes."""
+    try:
+        if league_id not in LEAGUES:
+            league_id = "ligue-1"
+
+        matches = list(collection.find({"league_id": league_id}))
+        matches.sort(key=lambda x: (not x.get("is_live", False), x.get("datetime", datetime.max)))
+
+        teams = set()
+        for match in matches:
+            if match.get("home_team"):
+                teams.add(match["home_team"])
+            if match.get("away_team"):
+                teams.add(match["away_team"])
+
+        league_info = LEAGUES[league_id]
+    except Exception as e:
+        print(f"Erreur MongoDB : {e}")
+        matches = []
+        teams = set()
+        league_info = LEAGUES["ligue-1"]
+
+    return render_template(
+        "explore.html",
+        current_league=league_id,
+        league_info=league_info,
+        all_leagues=LEAGUES,
+        teams=sorted(teams)
+    )
+
 @app.route("/api/matches/<league_id>")
 def get_matches(league_id):
     """API pour récupérer les matchs en JSON (sans recharger la page)"""
@@ -95,6 +128,64 @@ def get_matches(league_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/teams/<league_id>")
+def get_teams(league_id):
+    """API pour récupérer la liste des équipes d'une ligue."""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        matches = list(collection.find({"league_id": league_id}))
+        teams = set()
+        for match in matches:
+            if match.get("home_team"):
+                teams.add(match["home_team"])
+            if match.get("away_team"):
+                teams.add(match["away_team"])
+
+        return jsonify({
+            "status": "success",
+            "league_id": league_id,
+            "teams": sorted(teams)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/team-matches/<league_id>")
+def get_team_matches(league_id):
+    """API pour récupérer les matchs d'une équipe."""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        team = request.args.get("team", "").strip()
+        if not team:
+            return jsonify({"error": "Paramètre 'team' manquant"}), 400
+
+        matches = list(collection.find({
+            "league_id": league_id,
+            "$or": [{"home_team": team}, {"away_team": team}]
+        }))
+
+        matches.sort(key=lambda x: (not x.get("is_live", False), x.get("datetime", datetime.max)))
+
+        for match in matches:
+            match["_id"] = str(match["_id"])
+            if "datetime" in match:
+                match["datetime"] = match["datetime"].isoformat()
+            if "scraped_at" in match:
+                match["scraped_at"] = match["scraped_at"].isoformat()
+
+        return jsonify({
+            "status": "success",
+            "league_id": league_id,
+            "team": team,
+            "count": len(matches),
+            "matches": matches
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/refresh/<league_id>")
 def refresh_league(league_id):
     """API pour déclencher le scraping d'une ligue"""
@@ -105,12 +196,15 @@ def refresh_league(league_id):
         # Lancer le scraping en arrière-plan (non-bloquant)
         def run_scraper():
             try:
-                subprocess.run(
-                    ["python", "scraper_mongo.py", league_id],
-                    timeout=60,
-                    capture_output=True
+                print(f"[Scraping] Démarrage {LEAGUES[league_id]['name']}...", flush=True)
+                result = subprocess.run(
+                    ["python", "scraper/scraper_mongo.py", league_id],
+                    timeout=120
                 )
-                print(f"[Scraping] {LEAGUES[league_id]['name']} terminé")
+                if result.returncode != 0:
+                    print(f"[Scraping] Erreur (code {result.returncode})", flush=True)
+                else:
+                    print(f"[Scraping] {LEAGUES[league_id]['name']} terminé", flush=True)
             except Exception as e:
                 print(f"[Scraping] Erreur: {e}")
         

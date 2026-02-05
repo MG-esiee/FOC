@@ -3,6 +3,12 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
+# Installer Chromium + chromedriver pour le scraping
+RUN apt-get update && apt-get install -y \
+    chromium \
+    chromium-driver \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 # Copier le fichier requirements et installer les dépendances
 COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

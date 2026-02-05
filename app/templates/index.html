@@ -37,6 +37,11 @@
                 {% endfor %}
             </div>
 
+            <div class="nav-tabs">
+                <a href="/{{ current_league }}" class="nav-tab active">MATCHS</a>
+                <a href="/explore/{{ current_league }}" class="nav-tab">EQUIPES</a>
+            </div>
+
             <button class="refresh-btn" onclick="refreshData()">
                 <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
