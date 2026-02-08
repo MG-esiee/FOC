@@ -139,7 +139,7 @@ OddsPortal.com
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### 1. Cloner le repository
 
@@ -219,7 +219,7 @@ docker-compose down -v
 
 ---
 
-## 💡 Utilisation
+## Utilisation
 
 ### Interface web
 
@@ -271,7 +271,7 @@ Auto-scraping: 3 minutes
 
 ---
 
-## 🔌 API
+## API
 
 ### Endpoints disponibles
 
