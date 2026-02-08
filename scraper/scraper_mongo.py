@@ -76,27 +76,35 @@ def parse_date(date_str):
 def clean_old_matches(collection, league_id=None):
     """Nettoie les matchs obsolètes de la base de données"""
     try:
-        # Supprimer les matchs de plus de 6 heures
-        six_hours_ago = datetime.now() - timedelta(hours=6)
+        # Supprimer les matchs terminés de plus de 24 heures
+        twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
         
-        query = {"datetime": {"$lt": six_hours_ago}}
+        query = {
+            "is_finished": True,
+            "datetime": {"$lt": twenty_four_hours_ago}
+        }
         if league_id:
             query["league_id"] = league_id
         
         deleted = collection.delete_many(query)
         if deleted.deleted_count > 0:
-            print(f"[CLEAN] {deleted.deleted_count} ancien(s) match(s) supprimé(s)")
+            print(f"[CLEAN] {deleted.deleted_count} match(s) terminé(s) de +24h supprimé(s)")
         
-        # Supprimer les matchs marqués comme terminés
-        query_finished = {"is_finished": True}
+        # Supprimer les matchs à venir de plus de 6 heures dans le passé
+        six_hours_ago = datetime.now() - timedelta(hours=6)
+        query_old = {
+            "is_finished": False,
+            "is_live": False,
+            "datetime": {"$lt": six_hours_ago}
+        }
         if league_id:
-            query_finished["league_id"] = league_id
+            query_old["league_id"] = league_id
         
-        deleted_finished = collection.delete_many(query_finished)
-        if deleted_finished.deleted_count > 0:
-            print(f"[CLEAN] {deleted_finished.deleted_count} match(s) terminé(s) supprimé(s)")
+        deleted_old = collection.delete_many(query_old)
+        if deleted_old.deleted_count > 0:
+            print(f"[CLEAN] {deleted_old.deleted_count} match(s) obsolète(s) supprimé(s)")
             
-        return deleted.deleted_count + deleted_finished.deleted_count
+        return deleted.deleted_count + deleted_old.deleted_count
         
     except Exception as e:
         print(f"[ERROR] Erreur lors du nettoyage: {e}")
@@ -209,13 +217,13 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                         is_live = "'" in match_time or match_time.lower() == "ht"
                         is_finished = match_time.lower() in ["ft", "fin", "finished", "aet", "pen"]
                         
-                        # IGNORER COMPLÈTEMENT les matchs terminés
-                        if is_finished:
-                            continue
                         
+                        # Match ID unique
                         # Match ID unique
                         if is_live:
                             match_id = f"{league_id}_{home_team}_{away_team}_{current_date}_LIVE"
+                        elif is_finished:
+                            match_id = f"{league_id}_{home_team}_{away_team}_{current_date}_FINISHED"
                         else:
                             match_id = f"{league_id}_{home_team}_{away_team}_{current_date}_{match_time}"
                         
@@ -269,13 +277,14 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                             "score_away": score_away,
                             "datetime": match_datetime,
                             "is_live": is_live,
-                            "is_finished": False,  # Toujours False car on ignore les matchs terminés
+                            "is_finished": is_finished,
                             "match_id": match_id,
                             "scraped_at": datetime.now()
                         }
                         
                         # Mise à jour ou insertion
-                        if is_live:
+                        if is_live or is_finished:
+                            # Pour live et terminés : match par équipes + date
                             collection.update_one(
                                 {
                                     "league_id": league_id,
@@ -287,6 +296,7 @@ def scrape_league(league_id, league_info, collection, max_retries=3):
                                 upsert=True
                             )
                         else:
+                            # Pour à venir : match par équipes + date + heure
                             collection.update_one(
                                 {
                                     "league_id": league_id,

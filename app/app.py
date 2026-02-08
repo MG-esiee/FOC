@@ -169,7 +169,12 @@ def home(league_id="ligue-1"):
             league_id = "ligue-1"
         
         matches = list(collection.find({"league_id": league_id}))
-        matches.sort(key=lambda x: (not x.get("is_live", False), x.get("datetime", datetime.max)))
+        # Tri : Live en premier, puis à venir, puis terminés
+        matches.sort(key=lambda x: (
+            not x.get("is_live", False),      # Live d'abord
+            x.get("is_finished", False),       # Puis à venir
+            x.get("datetime", datetime.max)    # Puis par date
+        ))
         
         league_info = LEAGUES[league_id]
         
@@ -262,8 +267,9 @@ def get_matches(league_id):
         
         total = len(matches)
         live = len([m for m in matches if m.get('is_live', False)])
-        upcoming = total - live
-        
+        finished = len([m for m in matches if m.get('is_finished', False)])
+        upcoming = total - live - finished
+
         return jsonify({
             "status": "success",
             "league_id": league_id,
@@ -271,12 +277,13 @@ def get_matches(league_id):
             "stats": {
                 "total": total,
                 "live": live,
-                "upcoming": upcoming
+                "upcoming": upcoming,
+                "finished": finished
             },
             "matches": matches,
             "updated_at": datetime.now().isoformat()
         })
-        
+                
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

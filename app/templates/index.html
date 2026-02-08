@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -84,10 +85,17 @@
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">{{ matches|rejectattr('is_live')|list|length }}</div>
+                    <div class="stat-value">{{ matches|rejectattr('is_live')|rejectattr('is_finished')|list|length }}</div>
                     <div class="stat-label">À Venir</div>
                     <div class="stat-bar">
-                        <div class="stat-fill" style="width: {{ (matches|rejectattr('is_live')|list|length / (matches|length if matches|length > 0 else 1) * 100)|round|int }}%"></div>
+                        <div class="stat-fill" style="width: {{ (matches|rejectattr('is_live')|rejectattr('is_finished')|list|length / (matches|length if matches|length > 0 else 1) * 100)|round|int }}%"></div>
+                    </div>
+                </div>
+                <div class="stat-card finished">
+                    <div class="stat-value">{{ matches|selectattr('is_finished')|list|length }}</div>
+                    <div class="stat-label">Terminés</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" style="width: {{ (matches|selectattr('is_finished')|list|length / (matches|length if matches|length > 0 else 1) * 100)|round|int }}%"></div>
                     </div>
                 </div>
             </div>
@@ -156,7 +164,7 @@
             {% endif %}
             
             <!-- Upcoming Matches -->
-            {% set upcoming_matches = matches|rejectattr('is_live')|list %}
+            {% set upcoming_matches = matches|rejectattr('is_live')|rejectattr('is_finished')|list %}
             {% if upcoming_matches %}
             <div class="matches-group">
                 <div class="group-header">
@@ -201,6 +209,61 @@
                                     <span class="odd-label">2</span>
                                     <span class="odd-value">{{ match.odd_2 }}</span>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <div class="match-date">{{ match.date }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Finished Matches -->
+            {% set finished_matches = matches|selectattr('is_finished')|list %}
+            {% if finished_matches %}
+            <div class="matches-group">
+                <div class="group-header">
+                    <div class="group-title">
+                        <svg class="finished-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; margin-right: 8px;">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <h2>MATCHS TERMINÉS</h2>
+                        <span class="count-badge">{{ finished_matches|length }}</span>
+                    </div>
+                </div>
+                
+                <div class="matches-list">
+                    {% for match in finished_matches %}
+                    <div class="match-card finished-card" data-match-id="{{ loop.index }}" style="animation-delay: {{ loop.index * 0.05 }}s">
+                        <div class="match-finished-badge">
+                            <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            <span>TERMINÉ</span>
+                        </div>
+                        
+                        <div class="match-info">
+                            <div class="match-teams">
+                                <div class="team home">
+                                    <span class="team-name">{{ match.home_team }}</span>
+                                    <span class="team-score final-score">{{ match.score_home }}</span>
+                                </div>
+                                <div class="match-separator"></div>
+                                <div class="team away">
+                                    <span class="team-score final-score">{{ match.score_away }}</span>
+                                    <span class="team-name">{{ match.away_team }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="match-result">
+                                {% if match.score_home|int > match.score_away|int %}
+                                <span class="result-badge win-home">Victoire {{ match.home_team }}</span>
+                                {% elif match.score_home|int < match.score_away|int %}
+                                <span class="result-badge win-away">Victoire {{ match.away_team }}</span>
+                                {% else %}
+                                <span class="result-badge draw">Match Nul</span>
+                                {% endif %}
                             </div>
                         </div>
                         
@@ -383,17 +446,19 @@
         // Mettre à jour les stats dans le hero
         function updateStats(stats) {
             const statValues = document.querySelectorAll('.stat-value');
-            if (statValues.length >= 3) {
+            if (statValues.length >= 4) {
                 // Animation des chiffres
                 animateNumber(statValues[0], parseInt(statValues[0].textContent), stats.total);
                 animateNumber(statValues[1], parseInt(statValues[1].textContent), stats.live);
                 animateNumber(statValues[2], parseInt(statValues[2].textContent), stats.upcoming);
+                animateNumber(statValues[3], parseInt(statValues[3].textContent), stats.finished || 0);
                 
                 // Animer les barres de progression
                 const statFills = document.querySelectorAll('.stat-fill');
                 if (stats.total > 0) {
                     statFills[1].style.width = `${(stats.live / stats.total * 100).toFixed(0)}%`;
                     statFills[2].style.width = `${(stats.upcoming / stats.total * 100).toFixed(0)}%`;
+                    statFills[3].style.width = `${((stats.finished || 0) / stats.total * 100).toFixed(0)}%`;
                 }
             }
         }
@@ -424,39 +489,47 @@
         // Mettre à jour la liste des matchs (rebuild HTML)
         function updateMatchesList(matches) {
             const liveMatches = matches.filter(m => m.is_live);
-            const upcomingMatches = matches.filter(m => !m.is_live);
+            const upcomingMatches = matches.filter(m => !m.is_live && !m.is_finished);
+            const finishedMatches = matches.filter(m => m.is_finished);
             const container = document.querySelector('.section-container');
             if (!container) return;
 
             container.innerHTML = ''; // On vide
 
             if (liveMatches.length > 0) {
-                container.appendChild(createMatchesGroup('EN DIRECT', liveMatches, true));
+                container.appendChild(createMatchesGroup('EN DIRECT', liveMatches, 'live'));
             }
             if (upcomingMatches.length > 0) {
-                container.appendChild(createMatchesGroup('PROCHAINS MATCHS', upcomingMatches, false));
+                container.appendChild(createMatchesGroup('PROCHAINS MATCHS', upcomingMatches, 'upcoming'));
+            }
+            if (finishedMatches.length > 0) {
+                container.appendChild(createMatchesGroup('MATCHS TERMINÉS', finishedMatches, 'finished'));
             }
 
-            // --- LE RE-CABALAGE INDISPENSABLE ---
-            // 1. On réactive les animations d'apparition
+            // Réactiver animations et panier
             attachObserversAndEvents();
-
-            // 2. On demande au panier de remettre les boutons en vert/jaune
             if (window.bettingSystem) {
                 window.bettingSystem.updateUI();
             }
         }
         
 
-        // Créer un groupe de matchs (live ou upcoming)
-        function createMatchesGroup(title, matches, isLive) {
+        // Créer un groupe de matchs (live, upcoming ou finished)
+        function createMatchesGroup(title, matches, type) {
             const group = document.createElement('div');
             group.className = 'matches-group';
+            
+            let headerIcon = '';
+            if (type === 'live') {
+                headerIcon = '<span class="live-pulse"></span>';
+            } else if (type === 'finished') {
+                headerIcon = '<svg class="finished-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; margin-right: 8px;"><polyline points="20 6 9 17 4 12"/></svg>';
+            }
             
             const header = `
                 <div class="group-header">
                     <div class="group-title">
-                        ${isLive ? '<span class="live-pulse"></span>' : ''}
+                        ${headerIcon}
                         <h2>${title}</h2>
                         <span class="count-badge">${matches.length}</span>
                     </div>
@@ -467,7 +540,7 @@
             matchesList.className = 'matches-list';
             
             matches.forEach((match, index) => {
-                matchesList.appendChild(createMatchCard(match, index, isLive));
+                matchesList.appendChild(createMatchCard(match, index, type));
             });
             
             group.innerHTML = header;
@@ -477,9 +550,12 @@
         }
 
         // Créer une carte de match
-        function createMatchCard(match, index, isLive) {
+        function createMatchCard(match, index, type) {
             const card = document.createElement('div');
-            card.className = `match-card ${isLive ? 'live-card' : ''} visible`;
+            const isLive = type === 'live';
+            const isFinished = type === 'finished';
+            
+            card.className = `match-card ${isLive ? 'live-card' : ''} ${isFinished ? 'finished-card' : ''} visible`;
             card.style.animationDelay = `${index * 0.05}s`;
             
             let timeIndicator = '';
@@ -488,6 +564,15 @@
                     <div class="match-live-indicator">
                         <span class="live-dot"></span>
                         <span class="live-time">${match.time}</span>
+                    </div>
+                `;
+            } else if (isFinished) {
+                timeIndicator = `
+                    <div class="match-finished-badge">
+                        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>TERMINÉ</span>
                     </div>
                 `;
             } else {
@@ -503,15 +588,15 @@
             }
             
             let teamsHTML = '';
-            if (isLive) {
+            if (isLive || isFinished) {
                 teamsHTML = `
                     <div class="team home">
                         <span class="team-name">${match.home_team}</span>
-                        <span class="team-score">${match.score_home}</span>
+                        <span class="team-score ${isFinished ? 'final-score' : ''}">${match.score_home}</span>
                     </div>
                     <div class="match-separator"></div>
                     <div class="team away">
-                        <span class="team-score">${match.score_away}</span>
+                        <span class="team-score ${isFinished ? 'final-score' : ''}">${match.score_away}</span>
                         <span class="team-name">${match.away_team}</span>
                     </div>
                 `;
@@ -527,12 +612,23 @@
                 `;
             }
             
-            card.innerHTML = `
-                ${timeIndicator}
-                <div class="match-info">
-                    <div class="match-teams">
-                        ${teamsHTML}
-                    </div>
+            let additionalContent = '';
+            if (isFinished) {
+                const scoreHome = parseInt(match.score_home) || 0;
+                const scoreAway = parseInt(match.score_away) || 0;
+                let resultBadge = '';
+                
+                if (scoreHome > scoreAway) {
+                    resultBadge = `<span class="result-badge win-home">Victoire ${match.home_team}</span>`;
+                } else if (scoreHome < scoreAway) {
+                    resultBadge = `<span class="result-badge win-away">Victoire ${match.away_team}</span>`;
+                } else {
+                    resultBadge = `<span class="result-badge draw">Match Nul</span>`;
+                }
+                
+                additionalContent = `<div class="match-result">${resultBadge}</div>`;
+            } else {
+                additionalContent = `
                     <div class="match-odds">
                         <div class="odd-item" data-type="1">
                             <span class="odd-label">1</span>
@@ -547,6 +643,16 @@
                             <span class="odd-value">${match.odd_2}</span>
                         </div>
                     </div>
+                `;
+            }
+            
+            card.innerHTML = `
+                ${timeIndicator}
+                <div class="match-info">
+                    <div class="match-teams">
+                        ${teamsHTML}
+                    </div>
+                    ${additionalContent}
                 </div>
                 <div class="match-date">${match.date}</div>
             `;
@@ -569,13 +675,10 @@
                 });
             }, observerOptions);
             
-            // On observe toutes les cartes de match (les nouvelles et les anciennes)
+            // On observe toutes les cartes de match
             document.querySelectorAll('.match-card').forEach(card => {
                 observer.observe(card);
             });
-
-            // Note : On ne met plus de "addEventListener" sur .odd-item ici.
-            // C'est BettingSystem dans betting.js qui s'en occupe globalement.
         }
 
         // Fast data refresh (10s) + Auto scraping (3min)
@@ -591,10 +694,12 @@
             if (dataRefreshInterval) clearInterval(dataRefreshInterval);
         });
 
+        console.log('=================================');
         console.log('FOC - First On Cotes');
         console.log('Mode: Temps Réel Ultra-Rapide');
         console.log('Data refresh: 10 secondes');
         console.log('Auto-scraping: 3 minutes');
+        console.log('=================================');
     </script>
 </body>
 </html>
