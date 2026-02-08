@@ -8,6 +8,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+<!-- Système de Paris -->
+<script src="{{ url_for('static', filename='betting.js') }}"></script>
+<script>
+    // Ajouter l'attribut pour récupérer la league_id
+    document.body.setAttribute('data-current-league', '{{ current_league }}');
+    
+    // Réattacher les événements après refresh
+    const originalAttachObserversAndEvents = attachObserversAndEvents;
+    attachObserversAndEvents = function() {
+        originalAttachObserversAndEvents();
+        reattachBettingEvents();
+    };
+</script>
 <body>
     <!-- Animated Background -->
     <div class="background-layer">
@@ -40,6 +53,7 @@
             <div class="nav-tabs">
                 <a href="/{{ current_league }}" class="nav-tab active">MATCHS</a>
                 <a href="/explore/{{ current_league }}" class="nav-tab">EQUIPES</a>
+                <a href="/my-bets" class="nav-tab">MES PARIS</a> 
             </div>
 
             <button class="refresh-btn" onclick="refreshData()">
@@ -130,7 +144,7 @@
                                     <span class="odd-label">1</span>
                                     <span class="odd-value">{{ match.odd_1 }}</span>
                                 </div>
-                                <div class="odd-item" data-type="x">
+                                <div class="odd-item" data-type="X">
                                     <span class="odd-label">X</span>
                                     <span class="odd-value">{{ match.odd_x }}</span>
                                 </div>
@@ -186,7 +200,7 @@
                                     <span class="odd-label">1</span>
                                     <span class="odd-value">{{ match.odd_1 }}</span>
                                 </div>
-                                <div class="odd-item" data-type="x">
+                                <div class="odd-item" data-type="X">
                                     <span class="odd-label">X</span>
                                     <span class="odd-value">{{ match.odd_x }}</span>
                                 </div>
@@ -552,7 +566,7 @@
                             <span class="odd-label">1</span>
                             <span class="odd-value">${match.odd_1}</span>
                         </div>
-                        <div class="odd-item" data-type="x">
+                        <div class="odd-item" data-type="X">
                             <span class="odd-label">X</span>
                             <span class="odd-value">${match.odd_x}</span>
                         </div>

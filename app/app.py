@@ -5,6 +5,7 @@ from datetime import datetime
 import subprocess
 import threading
 import time
+from bson import ObjectId
 
 app = Flask(__name__)
 
@@ -13,6 +14,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017/odds_db")
 client = MongoClient(MONGO_URI)
 db = client["odds_db"]
 collection = db["matches"]
+bets_collection = db["bets"]  # ✅ NOUVELLE COLLECTION POUR LES PARIS
 
 # Configuration des ligues
 LEAGUES = {
@@ -62,7 +64,7 @@ def initial_scrape():
             print("[INIT] Scraping initial terminé avec succès")
             print(result.stdout)
         else:
-            print(f"[INIT]  Scraping terminé avec des erreurs (code {result.returncode})")
+            print(f"[INIT] Scraping terminé avec des erreurs (code {result.returncode})")
             print(result.stderr)
         
         initial_scraping_done = True
@@ -99,27 +101,76 @@ def start_background_scraping():
                     capture_output=True
                 )
                 print("[BACKGROUND] Scraping automatique terminé")
+                
+                # ✅ Mettre à jour les résultats des paris après chaque scraping
+                update_bets_results()
+                
             except Exception as e:
-                print(f"[BACKGROUND] ⚠️  Erreur: {e}")
+                print(f"[BACKGROUND] ⚠️ Erreur: {e}")
     
     thread = threading.Thread(target=scrape_loop, daemon=True)
     thread.start()
+
+def update_bets_results():
+    """Mettre à jour les résultats des paris en cours"""
+    try:
+        # Récupérer tous les paris en cours
+        pending_bets = list(bets_collection.find({"status": "pending"}))
+        
+        for bet in pending_bets:
+            all_finished = True
+            all_won = True
+            
+            for selection in bet['selections']:
+                # Récupérer le match correspondant
+                match = collection.find_one({
+                    "league_id": selection['league_id'],
+                    "home_team": selection['home_team'],
+                    "away_team": selection['away_team']
+                })
+                
+                if not match or not match.get('is_finished', False):
+                    all_finished = False
+                    break
+                
+                # Vérifier si la sélection est gagnante
+                bet_type = selection['bet_type']
+                score_home = int(match.get('score_home', 0))
+                score_away = int(match.get('score_away', 0))
+                
+                won = False
+                if bet_type == '1' and score_home > score_away:
+                    won = True
+                elif bet_type == 'X' and score_home == score_away:
+                    won = True
+                elif bet_type == '2' and score_home < score_away:
+                    won = True
+                
+                if not won:
+                    all_won = False
+            
+            # Mettre à jour le statut du pari
+            if all_finished:
+                new_status = "won" if all_won else "lost"
+                bets_collection.update_one(
+                    {"_id": bet['_id']},
+                    {"$set": {"status": new_status, "resolved_at": datetime.now()}}
+                )
+                print(f"[BETS] Pari {bet['_id']} résolu: {new_status}")
+        
+    except Exception as e:
+        print(f"[BETS] Erreur mise à jour paris: {e}")
 
 @app.route("/")
 @app.route("/<league_id>")
 def home(league_id="ligue-1"):
     try:
-        # Vérifier si la ligue existe
         if league_id not in LEAGUES:
             league_id = "ligue-1"
         
-        # Récupérer les matchs de la ligue sélectionnée
         matches = list(collection.find({"league_id": league_id}))
-        
-        # Tri : matchs live en premier, puis par datetime
         matches.sort(key=lambda x: (not x.get("is_live", False), x.get("datetime", datetime.max)))
         
-        # Informations de la ligue
         league_info = LEAGUES[league_id]
         
     except Exception as e:
@@ -169,6 +220,36 @@ def explore(league_id="ligue-1"):
         teams=sorted(teams)
     )
 
+# ✅ NOUVELLE ROUTE : Page Mes Paris
+@app.route("/my-bets")
+def my_bets():
+    """Page pour voir tous les paris de l'utilisateur"""
+    try:
+        # Pour l'instant, on récupère tous les paris
+        # Dans une vraie app, on filtrerait par user_id
+        pending_bets = list(bets_collection.find({"status": "pending"}).sort("created_at", -1))
+        finished_bets = list(bets_collection.find({"status": {"$in": ["won", "lost"]}}).sort("resolved_at", -1))
+        
+        # Convertir ObjectId en string
+        for bet in pending_bets + finished_bets:
+            bet['_id'] = str(bet['_id'])
+            if 'created_at' in bet:
+                bet['created_at'] = bet['created_at'].strftime('%d/%m/%Y %H:%M')
+            if 'resolved_at' in bet:
+                bet['resolved_at'] = bet['resolved_at'].strftime('%d/%m/%Y %H:%M')
+        
+    except Exception as e:
+        print(f"Erreur MongoDB : {e}")
+        pending_bets = []
+        finished_bets = []
+    
+    return render_template(
+        "my_bets.html",
+        pending_bets=pending_bets,
+        finished_bets=finished_bets,
+        all_leagues=LEAGUES
+    )
+
 @app.route("/api/matches/<league_id>")
 def get_matches(league_id):
     """API pour récupérer les matchs en JSON (sans recharger la page)"""
@@ -176,22 +257,16 @@ def get_matches(league_id):
         if league_id not in LEAGUES:
             return jsonify({"error": "Ligue inconnue"}), 400
         
-        # Récupérer les matchs
         matches = list(collection.find({"league_id": league_id}))
-        
-        # Tri : matchs live en premier, puis par datetime
         matches.sort(key=lambda x: (not x.get("is_live", False), x.get("datetime", datetime.max)))
         
-        # Convertir ObjectId en string pour JSON
         for match in matches:
             match['_id'] = str(match['_id'])
-            # Convertir datetime en string
             if 'datetime' in match:
                 match['datetime'] = match['datetime'].isoformat()
             if 'scraped_at' in match:
                 match['scraped_at'] = match['scraped_at'].isoformat()
         
-        # Stats
         total = len(matches)
         live = len([m for m in matches if m.get('is_live', False)])
         upcoming = total - live
@@ -207,6 +282,76 @@ def get_matches(league_id):
             },
             "matches": matches,
             "updated_at": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ✅ NOUVELLE ROUTE : Placer un pari
+@app.route("/api/place-bet", methods=["POST"])
+def place_bet():
+    """API pour placer un pari"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'selections' not in data or 'stake' not in data:
+            return jsonify({"error": "Données manquantes"}), 400
+        
+        selections = data['selections']
+        stake = float(data['stake'])
+        
+        if len(selections) == 0:
+            return jsonify({"error": "Aucune sélection"}), 400
+        
+        if stake <= 0:
+            return jsonify({"error": "Mise invalide"}), 400
+        
+        # Calculer la cote totale
+        total_odd = 1.0
+        for selection in selections:
+            total_odd *= float(selection['odd'])
+        
+        potential_win = stake * total_odd
+        
+        # Créer le pari
+        bet = {
+            "selections": selections,
+            "stake": stake,
+            "total_odd": round(total_odd, 2),
+            "potential_win": round(potential_win, 2),
+            "status": "pending",
+            "created_at": datetime.now(),
+            "resolved_at": None
+        }
+        
+        result = bets_collection.insert_one(bet)
+        
+        return jsonify({
+            "status": "success",
+            "bet_id": str(result.inserted_id),
+            "message": "Pari placé avec succès"
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ✅ NOUVELLE ROUTE : Récupérer les paris
+@app.route("/api/my-bets")
+def get_my_bets():
+    """API pour récupérer tous les paris"""
+    try:
+        bets = list(bets_collection.find().sort("created_at", -1))
+        
+        for bet in bets:
+            bet['_id'] = str(bet['_id'])
+            if 'created_at' in bet:
+                bet['created_at'] = bet['created_at'].isoformat()
+            if 'resolved_at' in bet and bet['resolved_at']:
+                bet['resolved_at'] = bet['resolved_at'].isoformat()
+        
+        return jsonify({
+            "status": "success",
+            "bets": bets
         })
         
     except Exception as e:
@@ -277,7 +422,6 @@ def refresh_league(league_id):
         if league_id not in LEAGUES:
             return jsonify({"error": "Ligue inconnue"}), 400
         
-        # Lancer le scraping en arrière-plan (non-bloquant)
         def run_scraper():
             try:
                 print(f"[Scraping] Démarrage {LEAGUES[league_id]['name']}...", flush=True)
@@ -318,6 +462,7 @@ def refresh_all():
                     capture_output=True
                 )
                 print("[Scraping] Toutes les ligues terminées")
+                update_bets_results()
             except Exception as e:
                 print(f"[Scraping] Erreur: {e}")
             finally:
@@ -340,15 +485,16 @@ def get_status():
     return jsonify({
         "initial_scraping_done": initial_scraping_done,
         "scraping_in_progress": scraping_in_progress,
-        "total_matches": collection.count_documents({})
+        "total_matches": collection.count_documents({}),
+        "total_bets": bets_collection.count_documents({})
     })
 
 if __name__ == "__main__":
-    # scraping intial au démarrage
+    # Scraping initial au démarrage
     initial_thread = threading.Thread(target=initial_scrape, daemon=True)
     initial_thread.start()
     
-    # scraping auto
+    # Scraping automatique
     start_background_scraping()
     
     # Démarrer Flask

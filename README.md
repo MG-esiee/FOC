@@ -391,7 +391,7 @@ GET /api/refresh-all
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Modifier la fréquence d'actualisation
 
@@ -449,7 +449,7 @@ LEAGUES = {
 
 ---
 
-## 🐛 Dépannage
+## Dépannage
 
 ### Problème : Les containers ne démarrent pas
 
