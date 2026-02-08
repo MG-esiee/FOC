@@ -11,6 +11,11 @@ import time
 import sys
 import traceback
 
+# CONFIGURATION DU FUSEAU HORAIRE (AVANT TOUT LE RESTE)
+import os
+os.environ['TZ'] = 'Europe/Paris'
+time.tzset()
+
 # Configuration des ligues
 LEAGUES = {
     "ligue-1": {
@@ -340,6 +345,8 @@ def main():
         db = client["odds_db"]
         collection = db["matches"]
         print("[OK] Connexion MongoDB établie")
+        print(f"[INFO] Fuseau horaire configuré: Europe/Paris")
+        print(f"[INFO] Heure actuelle du serveur: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     except Exception as e:
         print(f"[FAIL] Impossible de se connecter à MongoDB: {e}")
         sys.exit(1)

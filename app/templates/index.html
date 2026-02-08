@@ -236,12 +236,40 @@
 
     <script>
         // ============================================
-        // FOC - Temps réel sans rechargement de page
+        // FOC - Temps réel AMÉLIORÉ
         // ============================================
 
         const currentLeague = "{{ current_league }}";
         let isRefreshing = false;
         let autoRefreshInterval = null;
+        let dataRefreshInterval = null;
+
+        // Auto-refresh des données SANS scraping (toutes les 10 secondes)
+        function startFastDataRefresh() {
+            dataRefreshInterval = setInterval(async () => {
+                // Ne pas recharger si un scraping est en cours
+                if (isRefreshing) return;
+                
+                console.log('[Fast-refresh] Mise à jour des données...');
+                try {
+                    await updateMatchesFromAPI();
+                } catch (error) {
+                    console.error('[Fast-refresh] Erreur:', error);
+                }
+            }, 10000); // 10 secondes = actualisation rapide
+            
+            console.log('[Fast-refresh] ACTIVÉ - Données toutes les 10 secondes');
+        }
+
+        // Auto-scraping (toutes les 3 minutes)
+        function startAutoScraping() {
+            autoRefreshInterval = setInterval(() => {
+                console.log('[Auto-scraping] Démarrage du scraping complet...');
+                refreshData();
+            }, 180000); // 3 minutes = 180000ms
+            
+            console.log('[Auto-scraping] ACTIVÉ - Scraping toutes les 3 minutes');
+        }
 
         // Mise à jour du temps
         function updateLastUpdate() {
@@ -314,7 +342,7 @@
             }
         }
 
-        // Mise à jour des données SANS recharger la page
+        // Mise à jour des données SANS recharger la page 
         async function updateMatchesFromAPI() {
             try {
                 console.log('[Update] Récupération des nouvelles données...');
@@ -334,12 +362,14 @@
                 // Mise à jour de la liste des matchs
                 updateMatchesList(data.matches);
                 
+                // Mise à jour du timestamp
+                updateLastUpdate();
+                
                 console.log('[Update] Interface mise à jour');
                 
             } catch (error) {
                 console.error('[Update] Erreur:', error);
-                // En cas d'erreur, on recharge la page
-                location.reload();
+                // En cas d'erreur, on ne recharge pas la page, on réessaie juste plus tard
             }
         }
 
@@ -347,9 +377,10 @@
         function updateStats(stats) {
             const statValues = document.querySelectorAll('.stat-value');
             if (statValues.length >= 3) {
-                statValues[0].textContent = stats.total;
-                statValues[1].textContent = stats.live;
-                statValues[2].textContent = stats.upcoming;
+                // Animation des chiffres
+                animateNumber(statValues[0], parseInt(statValues[0].textContent), stats.total);
+                animateNumber(statValues[1], parseInt(statValues[1].textContent), stats.live);
+                animateNumber(statValues[2], parseInt(statValues[2].textContent), stats.upcoming);
                 
                 // Animer les barres de progression
                 const statFills = document.querySelectorAll('.stat-fill');
@@ -358,6 +389,29 @@
                     statFills[2].style.width = `${(stats.upcoming / stats.total * 100).toFixed(0)}%`;
                 }
             }
+        }
+
+        // Animation des nombres
+        function animateNumber(element, from, to) {
+            if (from === to) return;
+            
+            const duration = 500;
+            const steps = 20;
+            const increment = (to - from) / steps;
+            let current = from;
+            let step = 0;
+            
+            const timer = setInterval(() => {
+                step++;
+                current += increment;
+                
+                if (step >= steps) {
+                    element.textContent = to;
+                    clearInterval(timer);
+                } else {
+                    element.textContent = Math.round(current);
+                }
+            }, duration / steps);
         }
 
         // Mettre à jour la liste des matchs (rebuild HTML)
@@ -551,35 +605,23 @@
             });
         }
 
-        // Auto-refresh intelligent avec scraping
-        function startAutoRefresh() {
-            // Option 1: Scraping complet toutes les 5 minutes
-            autoRefreshInterval = setInterval(() => {
-                console.log('[Auto-refresh] Scraping automatique...');
-                refreshData();
-            }, 300000); // 5 minutes = 300000ms
-            
-            console.log('[Auto-refresh] ACTIVÉ - Scraping toutes les 5 minutes');
-        }
-
-        // Démarrer l'auto-refresh au chargement
-        startAutoRefresh();
+        // Fast data refresh (10s) + Auto scraping (3min)
+        startFastDataRefresh();
+        startAutoScraping();
 
         // Initialiser les observers au chargement
         attachObserversAndEvents();
 
-        // Nettoyer l'intervalle quand on quitte la page
+        // Nettoyer les intervalles quand on quitte la page
         window.addEventListener('beforeunload', () => {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            if (dataRefreshInterval) clearInterval(dataRefreshInterval);
         });
 
-        console.log('=================================');
         console.log('FOC - First On Cotes');
-        console.log('Mode: Temps Réel Sans Rechargement');
-        console.log('Auto-scraping: 5 minutes');
-        console.log('=================================');
+        console.log('Mode: Temps Réel Ultra-Rapide');
+        console.log('Data refresh: 10 secondes');
+        console.log('Auto-scraping: 3 minutes');
     </script>
 </body>
 </html>

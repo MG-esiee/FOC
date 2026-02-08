@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import subprocess
 import threading
+import time
 
 app = Flask(__name__)
 
@@ -21,6 +22,88 @@ LEAGUES = {
     "serie-a": {"name": "Serie A", "country": "Italy", "icon": "🇮🇹"},
     "bundesliga": {"name": "Bundesliga", "country": "Germany", "icon": "🇩🇪"}
 }
+
+# Variable globale pour suivre l'état du scraping initial
+initial_scraping_done = False
+scraping_in_progress = False
+
+def initial_scrape():
+    """Scraping initial au démarrage de l'application"""
+    global initial_scraping_done, scraping_in_progress
+    
+    if scraping_in_progress:
+        print("[INIT] Scraping déjà en cours, abandon...")
+        return
+    
+    scraping_in_progress = True
+    print("[INIT] SCRAPING INITIAL AU DÉMARRAGE")
+    
+    try:
+        # Attendre que MongoDB soit prêt
+        for i in range(10):
+            try:
+                client.server_info()
+                print("[INIT] MongoDB connecté")
+                break
+            except:
+                print(f"[INIT] ⏳ Attente MongoDB... ({i+1}/10)")
+                time.sleep(2)
+        
+        # Lancer le scraping de toutes les ligues
+        print("[INIT] 📡 Lancement du scraping de toutes les ligues...")
+        result = subprocess.run(
+            ["python", "scraper/scraper_mongo.py"],
+            timeout=300,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            print("[INIT] Scraping initial terminé avec succès")
+            print(result.stdout)
+        else:
+            print(f"[INIT]  Scraping terminé avec des erreurs (code {result.returncode})")
+            print(result.stderr)
+        
+        initial_scraping_done = True
+        
+    except subprocess.TimeoutExpired:
+        print("[INIT] Timeout du scraping initial (5 minutes)")
+    except Exception as e:
+        print(f"[INIT] Erreur lors du scraping initial: {e}")
+    finally:
+        scraping_in_progress = False
+        print("=" * 60)
+
+def start_background_scraping():
+    """Démarrer le scraping en arrière-plan toutes les 3 minutes"""
+    def scrape_loop():
+        # Attendre que le scraping initial soit terminé
+        while not initial_scraping_done:
+            time.sleep(5)
+        
+        print("[BACKGROUND] 🔄 Scraping automatique activé (toutes les 3 minutes)")
+        
+        while True:
+            time.sleep(180)  # 3 minutes
+            
+            if scraping_in_progress:
+                print("[BACKGROUND] Scraping déjà en cours, skip...")
+                continue
+            
+            print("[BACKGROUND] 🔄 Scraping automatique...")
+            try:
+                subprocess.run(
+                    ["python", "scraper/scraper_mongo.py"],
+                    timeout=120,
+                    capture_output=True
+                )
+                print("[BACKGROUND] Scraping automatique terminé")
+            except Exception as e:
+                print(f"[BACKGROUND] ⚠️  Erreur: {e}")
+    
+    thread = threading.Thread(target=scrape_loop, daemon=True)
+    thread.start()
 
 @app.route("/")
 @app.route("/<league_id>")
@@ -49,7 +132,8 @@ def home(league_id="ligue-1"):
         matches=matches,
         current_league=league_id,
         league_info=league_info,
-        all_leagues=LEAGUES
+        all_leagues=LEAGUES,
+        initial_scraping_done=initial_scraping_done
     )
 
 @app.route("/explore")
@@ -225,15 +309,19 @@ def refresh_all():
     """API pour scraper TOUTES les ligues"""
     try:
         def run_scraper():
+            global scraping_in_progress
+            scraping_in_progress = True
             try:
                 subprocess.run(
-                    ["python", "scraper_mongo.py"],
+                    ["python", "scraper/scraper_mongo.py"],
                     timeout=300,
                     capture_output=True
                 )
                 print("[Scraping] Toutes les ligues terminées")
             except Exception as e:
                 print(f"[Scraping] Erreur: {e}")
+            finally:
+                scraping_in_progress = False
         
         thread = threading.Thread(target=run_scraper, daemon=True)
         thread.start()
@@ -246,5 +334,25 @@ def refresh_all():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/status")
+def get_status():
+    """API pour vérifier le statut du scraping"""
+    return jsonify({
+        "initial_scraping_done": initial_scraping_done,
+        "scraping_in_progress": scraping_in_progress,
+        "total_matches": collection.count_documents({})
+    })
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    # scraping intial au démarrage
+    initial_thread = threading.Thread(target=initial_scrape, daemon=True)
+    initial_thread.start()
+    
+    # scraping auto
+    start_background_scraping()
+    
+    # Démarrer Flask
+    print("FOC - First On Cotes")
+    print("Scraping initial en cours...")
+    print("Auto-refresh: toutes les 3 minutes")
+    app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
