@@ -1022,3 +1022,138 @@ body {
     margin-left: 6px;
     font-size: 14px;
 }
+
+/* La classe ajoutée par le JS */
+.odd-item.selected {
+    background: #00ff88 !important; /* Vert fluo style FOC */
+    color: #000 !important;
+    border-color: #fff;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+    transform: scale(1.05);
+    font-weight: bold;
+}
+
+/* Optionnel : petit effet au survol pour montrer que c'est cliquable */
+.odd-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.odd-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+/* Container des paris */
+.bets-page .section-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* La Carte de Pari */
+.bet-card {
+    background: rgba(20, 20, 25, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 25px;
+    backdrop-filter: blur(10px);
+    transition: transform 0.3s ease;
+}
+
+.bet-card:hover {
+    transform: translateY(-5px);
+    border-color: #00ff88;
+}
+
+/* Header de la carte */
+.bet-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.bet-card-id {
+    font-family: 'Space Mono', monospace;
+    color: #00ff88;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.bet-card-date {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* Badge de statut */
+.bet-status {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.bet-status.pending { background: rgba(255, 166, 0, 0.2); color: #ffa600; }
+.bet-status.won { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+.bet-status.lost { background: rgba(255, 68, 68, 0.2); color: #ff4444; }
+
+/* Liste des sélections à l'intérieur du pari */
+.bet-card-selection {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.bet-card-match {
+    font-weight: 600;
+    color: #eee;
+}
+
+.bet-card-choice {
+    text-align: right;
+}
+
+.bet-item-type {
+    display: block;
+    color: #00ff88;
+    font-size: 0.85rem;
+}
+
+.bet-item-odd {
+    font-family: 'Space Mono', monospace;
+    font-weight: bold;
+}
+
+/* Footer de la carte (Mise et Gains) */
+.bet-card-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 15px;
+    text-align: center;
+}
+
+.bet-card-stat-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.bet-card-stat-value {
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.bet-card-stat-value.win {
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}

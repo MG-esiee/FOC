@@ -220,35 +220,28 @@ def explore(league_id="ligue-1"):
         teams=sorted(teams)
     )
 
-# ✅ NOUVELLE ROUTE : Page Mes Paris
 @app.route("/my-bets")
 def my_bets():
-    """Page pour voir tous les paris de l'utilisateur"""
     try:
-        # Pour l'instant, on récupère tous les paris
-        # Dans une vraie app, on filtrerait par user_id
-        pending_bets = list(bets_collection.find({"status": "pending"}).sort("created_at", -1))
-        finished_bets = list(bets_collection.find({"status": {"$in": ["won", "lost"]}}).sort("resolved_at", -1))
-        
-        # Convertir ObjectId en string
-        for bet in pending_bets + finished_bets:
+        # On récupère tout pour vérifier
+        all_pending = list(bets_collection.find({"status": "pending"}).sort("created_at", -1))
+        all_finished = list(bets_collection.find({"status": {"$in": ["won", "lost"]}}).sort("resolved_at", -1))
+
+        for bet in all_pending + all_finished:
             bet['_id'] = str(bet['_id'])
-            if 'created_at' in bet:
+            # Vérification sécurisée du type avant strftime
+            if 'created_at' in bet and isinstance(bet['created_at'], datetime):
                 bet['created_at'] = bet['created_at'].strftime('%d/%m/%Y %H:%M')
-            if 'resolved_at' in bet:
+            if 'resolved_at' in bet and isinstance(bet['resolved_at'], datetime):
                 bet['resolved_at'] = bet['resolved_at'].strftime('%d/%m/%Y %H:%M')
-        
+
+        return render_template("my_bets.html", 
+                               pending_bets=all_pending, 
+                               finished_bets=all_finished, 
+                               all_leagues=LEAGUES)
     except Exception as e:
-        print(f"Erreur MongoDB : {e}")
-        pending_bets = []
-        finished_bets = []
-    
-    return render_template(
-        "my_bets.html",
-        pending_bets=pending_bets,
-        finished_bets=finished_bets,
-        all_leagues=LEAGUES
-    )
+        print(f"ERREUR AFFICHAGE PARIS : {e}")
+        return f"Erreur interne : {e}", 500
 
 @app.route("/api/matches/<league_id>")
 def get_matches(league_id):
@@ -290,49 +283,37 @@ def get_matches(league_id):
 # ✅ NOUVELLE ROUTE : Placer un pari
 @app.route("/api/place-bet", methods=["POST"])
 def place_bet():
-    """API pour placer un pari"""
     try:
         data = request.get_json()
-        
-        if not data or 'selections' not in data or 'stake' not in data:
-            return jsonify({"error": "Données manquantes"}), 400
-        
-        selections = data['selections']
-        stake = float(data['stake'])
-        
-        if len(selections) == 0:
+        # Debug pour voir ce que le serveur reçoit réellement
+        print(f"DONNÉES REÇUES : {data}") 
+
+        selections = data.get('selections', [])
+        stake = float(data.get('stake', 10)) # Conversion forcée en float
+
+        if not selections:
             return jsonify({"error": "Aucune sélection"}), 400
-        
-        if stake <= 0:
-            return jsonify({"error": "Mise invalide"}), 400
-        
-        # Calculer la cote totale
+
         total_odd = 1.0
-        for selection in selections:
-            total_odd *= float(selection['odd'])
-        
-        potential_win = stake * total_odd
-        
-        # Créer le pari
+        for s in selections:
+            total_odd *= float(s['odd'])
+
         bet = {
             "selections": selections,
             "stake": stake,
             "total_odd": round(total_odd, 2),
-            "potential_win": round(potential_win, 2),
+            "potential_win": round(stake * total_odd, 2),
             "status": "pending",
-            "created_at": datetime.now(),
+            "created_at": datetime.now(), # Utilise datetime.now() sans strftime ici
             "resolved_at": None
         }
-        
+
         result = bets_collection.insert_one(bet)
+        print(f"PARI INSÉRÉ AVEC ID : {result.inserted_id}")
         
-        return jsonify({
-            "status": "success",
-            "bet_id": str(result.inserted_id),
-            "message": "Pari placé avec succès"
-        })
-        
+        return jsonify({"status": "success", "bet_id": str(result.inserted_id)})
     except Exception as e:
+        print(f"ERREUR INSERTION : {e}")
         return jsonify({"error": str(e)}), 500
 
 # ✅ NOUVELLE ROUTE : Récupérer les paris
