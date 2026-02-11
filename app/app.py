@@ -14,7 +14,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017/odds_db")
 client = MongoClient(MONGO_URI)
 db = client["odds_db"]
 collection = db["matches"]
-bets_collection = db["bets"]  # ✅ NOUVELLE COLLECTION POUR LES PARIS
+bets_collection = db["bets"]
 
 # Configuration des ligues
 LEAGUES = {
@@ -25,20 +25,36 @@ LEAGUES = {
     "bundesliga": {"name": "Bundesliga", "country": "Germany", "icon": "🇩🇪"}
 }
 
-# Variable globale pour suivre l'état du scraping initial
+# Variables globales pour suivre l'état
 initial_scraping_done = False
 scraping_in_progress = False
+scraping_status = {
+    "phase": "starting",  # starting, scraping, ready
+    "message": "Initialisation...",
+    "progress": 0,
+    "leagues_done": 0,
+    "total_leagues": len(LEAGUES)
+}
+
+def update_scraping_status(phase, message, progress=None):
+    """Mettre à jour le statut du scraping pour l'afficher côté client"""
+    global scraping_status
+    scraping_status["phase"] = phase
+    scraping_status["message"] = message
+    if progress is not None:
+        scraping_status["progress"] = progress
+    print(f"[STATUS] {phase.upper()}: {message} ({progress}%)" if progress else f"[STATUS] {phase.upper()}: {message}")
 
 def initial_scrape():
     """Scraping initial au démarrage de l'application"""
-    global initial_scraping_done, scraping_in_progress
+    global initial_scraping_done, scraping_in_progress, scraping_status
     
     if scraping_in_progress:
         print("[INIT] Scraping déjà en cours, abandon...")
         return
     
     scraping_in_progress = True
-    print("[INIT] SCRAPING INITIAL AU DÉMARRAGE")
+    update_scraping_status("starting", "Connexion à MongoDB...", 5)
     
     try:
         # Attendre que MongoDB soit prêt
@@ -46,13 +62,17 @@ def initial_scrape():
             try:
                 client.server_info()
                 print("[INIT] MongoDB connecté")
+                update_scraping_status("starting", "MongoDB connecté", 10)
                 break
             except:
                 print(f"[INIT] ⏳ Attente MongoDB... ({i+1}/10)")
+                update_scraping_status("starting", f"Attente MongoDB ({i+1}/10)...", 5 + i)
                 time.sleep(2)
         
         # Lancer le scraping de toutes les ligues
+        update_scraping_status("scraping", "Scraping des ligues en cours...", 20)
         print("[INIT] 📡 Lancement du scraping de toutes les ligues...")
+        
         result = subprocess.run(
             ["python", "scraper/scraper_mongo.py"],
             timeout=300,
@@ -61,18 +81,24 @@ def initial_scrape():
         )
         
         if result.returncode == 0:
-            print("[INIT] Scraping initial terminé avec succès")
+            print("[INIT] ✅ Scraping initial terminé avec succès")
             print(result.stdout)
+            update_scraping_status("ready", "Données chargées avec succès", 100)
         else:
-            print(f"[INIT] Scraping terminé avec des erreurs (code {result.returncode})")
+            print(f"[INIT] ⚠️ Scraping terminé avec des erreurs (code {result.returncode})")
             print(result.stderr)
+            update_scraping_status("ready", "Données partiellement chargées", 100)
         
         initial_scraping_done = True
         
     except subprocess.TimeoutExpired:
-        print("[INIT] Timeout du scraping initial (5 minutes)")
+        print("[INIT] ⏰ Timeout du scraping initial (5 minutes)")
+        update_scraping_status("ready", "Timeout - Données partielles", 100)
+        initial_scraping_done = True
     except Exception as e:
-        print(f"[INIT] Erreur lors du scraping initial: {e}")
+        print(f"[INIT] ❌ Erreur lors du scraping initial: {e}")
+        update_scraping_status("ready", f"Erreur: {str(e)[:50]}", 100)
+        initial_scraping_done = True
     finally:
         scraping_in_progress = False
         print("=" * 60)
@@ -100,9 +126,9 @@ def start_background_scraping():
                     timeout=120,
                     capture_output=True
                 )
-                print("[BACKGROUND] Scraping automatique terminé")
+                print("[BACKGROUND] ✅ Scraping automatique terminé")
                 
-                # ✅ Mettre à jour les résultats des paris après chaque scraping
+                # Mettre à jour les résultats des paris après chaque scraping
                 update_bets_results()
                 
             except Exception as e:
@@ -114,7 +140,6 @@ def start_background_scraping():
 def update_bets_results():
     """Mettre à jour les résultats des paris en cours"""
     try:
-        # Récupérer tous les paris en cours
         pending_bets = list(bets_collection.find({"status": "pending"}))
         
         for bet in pending_bets:
@@ -122,7 +147,6 @@ def update_bets_results():
             all_won = True
             
             for selection in bet['selections']:
-                # Récupérer le match correspondant
                 match = collection.find_one({
                     "league_id": selection['league_id'],
                     "home_team": selection['home_team'],
@@ -133,7 +157,6 @@ def update_bets_results():
                     all_finished = False
                     break
                 
-                # Vérifier si la sélection est gagnante
                 bet_type = selection['bet_type']
                 score_home = int(match.get('score_home', 0))
                 score_away = int(match.get('score_away', 0))
@@ -149,7 +172,6 @@ def update_bets_results():
                 if not won:
                     all_won = False
             
-            # Mettre à jour le statut du pari
             if all_finished:
                 new_status = "won" if all_won else "lost"
                 bets_collection.update_one(
@@ -169,11 +191,10 @@ def home(league_id="ligue-1"):
             league_id = "ligue-1"
         
         matches = list(collection.find({"league_id": league_id}))
-        # Tri : Live en premier, puis à venir, puis terminés
         matches.sort(key=lambda x: (
-            not x.get("is_live", False),      # Live d'abord
-            x.get("is_finished", False),       # Puis à venir
-            x.get("datetime", datetime.max)    # Puis par date
+            not x.get("is_live", False),
+            x.get("is_finished", False),
+            x.get("datetime", datetime.max)
         ))
         
         league_info = LEAGUES[league_id]
@@ -228,13 +249,11 @@ def explore(league_id="ligue-1"):
 @app.route("/my-bets")
 def my_bets():
     try:
-        # On récupère tout pour vérifier
         all_pending = list(bets_collection.find({"status": "pending"}).sort("created_at", -1))
         all_finished = list(bets_collection.find({"status": {"$in": ["won", "lost"]}}).sort("resolved_at", -1))
 
         for bet in all_pending + all_finished:
             bet['_id'] = str(bet['_id'])
-            # Vérification sécurisée du type avant strftime
             if 'created_at' in bet and isinstance(bet['created_at'], datetime):
                 bet['created_at'] = bet['created_at'].strftime('%d/%m/%Y %H:%M')
             if 'resolved_at' in bet and isinstance(bet['resolved_at'], datetime):
@@ -287,16 +306,14 @@ def get_matches(league_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ✅ NOUVELLE ROUTE : Placer un pari
 @app.route("/api/place-bet", methods=["POST"])
 def place_bet():
     try:
         data = request.get_json()
-        # Debug pour voir ce que le serveur reçoit réellement
         print(f"DONNÉES REÇUES : {data}") 
 
         selections = data.get('selections', [])
-        stake = float(data.get('stake', 10)) # Conversion forcée en float
+        stake = float(data.get('stake', 10))
 
         if not selections:
             return jsonify({"error": "Aucune sélection"}), 400
@@ -311,7 +328,7 @@ def place_bet():
             "total_odd": round(total_odd, 2),
             "potential_win": round(stake * total_odd, 2),
             "status": "pending",
-            "created_at": datetime.now(), # Utilise datetime.now() sans strftime ici
+            "created_at": datetime.now(),
             "resolved_at": None
         }
 
@@ -323,7 +340,6 @@ def place_bet():
         print(f"ERREUR INSERTION : {e}")
         return jsonify({"error": str(e)}), 500
 
-# ✅ NOUVELLE ROUTE : Récupérer les paris
 @app.route("/api/my-bets")
 def get_my_bets():
     """API pour récupérer tous les paris"""
@@ -474,7 +490,8 @@ def get_status():
         "initial_scraping_done": initial_scraping_done,
         "scraping_in_progress": scraping_in_progress,
         "total_matches": collection.count_documents({}),
-        "total_bets": bets_collection.count_documents({})
+        "total_bets": bets_collection.count_documents({}),
+        "scraping_status": scraping_status
     })
 
 if __name__ == "__main__":
@@ -486,7 +503,11 @@ if __name__ == "__main__":
     start_background_scraping()
     
     # Démarrer Flask
-    print("FOC - First On Cotes")
-    print("Scraping initial en cours...")
-    print("Auto-refresh: toutes les 3 minutes")
+    print("=" * 60)
+    print("🔥 FOC - First On Cotes")
+    print("=" * 60)
+    print("📡 Scraping initial en cours...")
+    print("🔄 Auto-refresh: toutes les 3 minutes")
+    print("⚡ Actualisation rapide: toutes les 10 secondes")
+    print("=" * 60)
     app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)

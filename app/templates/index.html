@@ -8,14 +8,185 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Loader initial pour le scraping de démarrage */
+        #initial-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0A0A0A;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+            overflow: hidden;
+        }
+
+        #initial-loader::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridMove 20s linear infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(40px, 40px); }
+        }
+
+        #initial-loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader-content {
+            text-align: center;
+            color: white;
+            position: relative;
+            z-index: 1;
+        }
+
+        .loader-logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 30px;
+            animation: pulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.4));
+        }
+
+        .loader-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #FFFFFF 0%, #FF6B66 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .loader-subtitle {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            color: #606060;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .loader-progress {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 100px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .loader-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #FF3B30 0%, #FF6B66 50%, #FF3B30 100%);
+            background-size: 200% 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: shimmer 2s linear infinite;
+            border-radius: 100px;
+            box-shadow: 0 0 10px rgba(255, 59, 48, 0.5);
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .loader-message {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            color: #A0A0A0;
+            min-height: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.08);
+            border-top-color: #FF3B30;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            box-shadow: 0 0 20px rgba(255, 59, 48, 0.2);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.05); 
+                opacity: 0.9;
+            }
+        }
+
+        /* Orbe d'ambiance */
+        #initial-loader::after {
+            content: '';
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(255, 59, 48, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: floatOrb 8s ease-in-out infinite;
+            filter: blur(60px);
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -60%) scale(1.1); }
+        }
+    </style>
 </head>
-<!-- Système de Paris -->
-<script src="{{ url_for('static', filename='betting.js') }}"></script>
-<script>
-    // Ajouter l'attribut pour récupérer la league_id
-    document.body.setAttribute('data-current-league', '{{ current_league }}');
-</script>
 <body>
+    <!-- Loader Initial -->
+    <div id="initial-loader" {% if initial_scraping_done %}class="hidden"{% endif %}>
+        <div class="loader-content">
+            <img src="{{ url_for('static', filename='logo_foc.png') }}" alt="FOC" class="loader-logo">
+            <div class="loader-title">FOC</div>
+            <div class="loader-subtitle">FIRST ON COTES</div>
+            <div class="loader-progress">
+                <div class="loader-progress-bar" id="loader-progress-bar"></div>
+            </div>
+            <div class="loader-spinner"></div>
+            <div class="loader-message" id="loader-message">Initialisation du scraping...</div>
+        </div>
+    </div>
+
+    <!-- Système de Paris -->
+    <script src="{{ url_for('static', filename='betting.js') }}"></script>
+    <script>
+        document.body.setAttribute('data-current-league', '{{ current_league }}');
+    </script>
+
     <!-- Animated Background -->
     <div class="background-layer">
         <div class="grid-overlay"></div>
@@ -27,7 +198,7 @@
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="brand">
-                <img src="{{ url_for('static', filename='logo_FOC.png') }}" alt="FOC" class="brand-logo">
+                <img src="{{ url_for('static', filename='logo_foc.png') }}" alt="FOC" class="brand-logo">
                 <div class="brand-text">
                     <span class="brand-name">FOC</span>
                     <span class="brand-tagline">FIRST ON COTES</span>
@@ -306,6 +477,60 @@
 
     <script>
         // ============================================
+        // GESTION DU LOADER INITIAL
+        // ============================================
+        
+        const initialLoader = document.getElementById('initial-loader');
+        const loaderProgressBar = document.getElementById('loader-progress-bar');
+        const loaderMessage = document.getElementById('loader-message');
+        let statusCheckInterval = null;
+
+        // Vérifier le statut du scraping initial
+        async function checkScrapingStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                if (data.scraping_status) {
+                    const { phase, message, progress } = data.scraping_status;
+                    
+                    // Mettre à jour la barre de progression
+                    if (loaderProgressBar) {
+                        loaderProgressBar.style.width = `${progress}%`;
+                    }
+                    
+                    // Mettre à jour le message
+                    if (loaderMessage) {
+                        loaderMessage.textContent = message;
+                    }
+                    
+                    // Si le scraping est terminé, cacher le loader
+                    if (data.initial_scraping_done && phase === 'ready') {
+                        setTimeout(() => {
+                            if (initialLoader) {
+                                initialLoader.classList.add('hidden');
+                            }
+                            if (statusCheckInterval) {
+                                clearInterval(statusCheckInterval);
+                            }
+                            // Charger les données initiales
+                            updateMatchesFromAPI();
+                        }, 500);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('[Status] Erreur vérification statut:', error);
+            }
+        }
+
+        // Démarrer la vérification du statut si le loader est visible
+        if (initialLoader && !initialLoader.classList.contains('hidden')) {
+            statusCheckInterval = setInterval(checkScrapingStatus, 1000);
+            checkScrapingStatus(); // Check immédiat
+        }
+
+        // ============================================
         // FOC - Temps réel AMÉLIORÉ
         // ============================================
 
@@ -317,7 +542,6 @@
         // Auto-refresh des données SANS scraping (toutes les 10 secondes)
         function startFastDataRefresh() {
             dataRefreshInterval = setInterval(async () => {
-                // Ne pas recharger si un scraping est en cours
                 if (isRefreshing) return;
                 
                 console.log('[Fast-refresh] Mise à jour des données...');
@@ -326,7 +550,7 @@
                 } catch (error) {
                     console.error('[Fast-refresh] Erreur:', error);
                 }
-            }, 10000); // 10 secondes = actualisation rapide
+            }, 10000); // 10 secondes
             
             console.log('[Fast-refresh] ACTIVÉ - Données toutes les 10 secondes');
         }
@@ -336,7 +560,7 @@
             autoRefreshInterval = setInterval(() => {
                 console.log('[Auto-scraping] Démarrage du scraping complet...');
                 refreshData();
-            }, 180000); // 3 minutes = 180000ms
+            }, 180000); // 3 minutes
             
             console.log('[Auto-scraping] ACTIVÉ - Scraping toutes les 3 minutes');
         }
@@ -368,7 +592,6 @@
             text.textContent = 'SCRAPING...';
             
             try {
-                // Étape 1: Lancer le scraping
                 console.log('[Refresh] Lancement du scraping...');
                 const scrapeResponse = await fetch(`/api/refresh/${currentLeague}`);
                 const scrapeData = await scrapeResponse.json();
@@ -379,10 +602,8 @@
                 
                 text.textContent = 'TRAITEMENT...';
                 
-                // Étape 2: Attendre que le scraping se termine (8 secondes)
                 await new Promise(resolve => setTimeout(resolve, 8000));
                 
-                // Étape 3: Recharger les données sans refresh de page
                 text.textContent = 'CHARGEMENT...';
                 await updateMatchesFromAPI();
                 
@@ -391,7 +612,6 @@
                 
                 console.log('[Refresh] Terminé avec succès');
                 
-                // Reset après 2 secondes
                 setTimeout(() => {
                     text.textContent = 'ACTUALISER';
                     btn.classList.remove('loading');
@@ -426,20 +646,14 @@
                 
                 console.log('[Update] Données reçues:', data.stats);
                 
-                // Mise à jour des statistiques
                 updateStats(data.stats);
-                
-                // Mise à jour de la liste des matchs
                 updateMatchesList(data.matches);
-                
-                // Mise à jour du timestamp
                 updateLastUpdate();
                 
                 console.log('[Update] Interface mise à jour');
                 
             } catch (error) {
                 console.error('[Update] Erreur:', error);
-                // En cas d'erreur, on ne recharge pas la page, on réessaie juste plus tard
             }
         }
 
@@ -447,13 +661,11 @@
         function updateStats(stats) {
             const statValues = document.querySelectorAll('.stat-value');
             if (statValues.length >= 4) {
-                // Animation des chiffres
                 animateNumber(statValues[0], parseInt(statValues[0].textContent), stats.total);
                 animateNumber(statValues[1], parseInt(statValues[1].textContent), stats.live);
                 animateNumber(statValues[2], parseInt(statValues[2].textContent), stats.upcoming);
                 animateNumber(statValues[3], parseInt(statValues[3].textContent), stats.finished || 0);
                 
-                // Animer les barres de progression
                 const statFills = document.querySelectorAll('.stat-fill');
                 if (stats.total > 0) {
                     statFills[1].style.width = `${(stats.live / stats.total * 100).toFixed(0)}%`;
@@ -494,7 +706,7 @@
             const container = document.querySelector('.section-container');
             if (!container) return;
 
-            container.innerHTML = ''; // On vide
+            container.innerHTML = '';
 
             if (liveMatches.length > 0) {
                 container.appendChild(createMatchesGroup('EN DIRECT', liveMatches, 'live'));
@@ -506,14 +718,12 @@
                 container.appendChild(createMatchesGroup('MATCHS TERMINÉS', finishedMatches, 'finished'));
             }
 
-            // Réactiver animations et panier
             attachObserversAndEvents();
             if (window.bettingSystem) {
                 window.bettingSystem.updateUI();
             }
         }
         
-
         // Créer un groupe de matchs (live, upcoming ou finished)
         function createMatchesGroup(title, matches, type) {
             const group = document.createElement('div');
@@ -661,7 +871,6 @@
         }
 
         function attachObserversAndEvents() {
-            // Observer pour les animations d'apparition au scroll
             const observerOptions = {
                 threshold: 0.1,
                 rootMargin: '0px 0px -50px 0px'
@@ -675,23 +884,20 @@
                 });
             }, observerOptions);
             
-            // On observe toutes les cartes de match
             document.querySelectorAll('.match-card').forEach(card => {
                 observer.observe(card);
             });
         }
 
-        // Fast data refresh (10s) + Auto scraping (3min)
+        // Démarrer les systèmes d'actualisation
         startFastDataRefresh();
         startAutoScraping();
-
-        // Initialiser les observers au chargement
         attachObserversAndEvents();
 
-        // Nettoyer les intervalles quand on quitte la page
         window.addEventListener('beforeunload', () => {
             if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             if (dataRefreshInterval) clearInterval(dataRefreshInterval);
+            if (statusCheckInterval) clearInterval(statusCheckInterval);
         });
 
         console.log('=================================');
