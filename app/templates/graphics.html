@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOC - Graphiques | {{ league_info.name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        .graphics-container {
+            margin-top: 120px;
+            padding: 30px;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+        }
+
+        .team-selector {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .team-selector label {
+            font-weight: 700;
+            font-family: var(--font-display);
+        }
+
+        .team-selector select {
+            padding: 12px 15px;
+            background: var(--surface);
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            cursor: pointer;
+            min-width: 250px;
+            transition: all 0.3s ease;
+        }
+
+        .team-selector select:hover,
+        .team-selector select:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        .chart-container {
+            background: var(--surface);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 400px;
+        }
+
+        .table-container {
+            background: var(--surface);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: rgba(255, 59, 48, 0.1);
+            border-bottom: 2px solid var(--primary);
+            padding: 12px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: rgba(255, 59, 48, 0.05);
+        }
+
+        .odd-value {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .type-domicile {
+            background: rgba(52, 199, 89, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #34C759;
+            font-weight: 700;
+        }
+
+        .type-nul {
+            background: rgba(255, 149, 0, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #FF9500;
+            font-weight: 700;
+        }
+
+        .type-ext {
+            background: rgba(255, 59, 48, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #FF3B30;
+            font-weight: 700;
+        }
+
+        .error-box {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: var(--radius-md);
+            padding: 15px;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .loading-box {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="background-layer">
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="brand">
+                <img src="{{ url_for('static', filename='logo_foc.png') }}" alt="FOC" class="brand-logo">
+                <div class="brand-text">
+                    <span class="brand-name">FOC</span>
+                    <span class="brand-tagline">FIRST ON COTES</span>
+                </div>
+            </a>
+            
+            <div class="league-selector">
+                {% for lid, linfo in all_leagues.items() %}
+                <a href="/graphics/{{ lid }}" class="league-link {% if lid == current_league %}active{% endif %}" 
+                   data-league="{{ lid }}">
+                    <span class="league-flag">{{ linfo.icon }}</span>
+                    <span class="league-name">{{ linfo.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+
+            <div class="nav-tabs">
+                <a href="/{{ current_league }}" class="nav-tab">MATCHS</a>
+                <a href="/explore/{{ current_league }}" class="nav-tab">EQUIPES</a>
+                <a href="/graphics/{{ current_league }}" class="nav-tab active">GRAPHIQUES</a>
+                <a href="/my-bets" class="nav-tab">MES PARIS</a> 
+            </div>
+
+            <button class="refresh-btn" onclick="loadAllData()">
+                <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                <span class="refresh-text">ACTUALISER</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="graphics-container">
+        <!-- Section 1: Toutes les cotes -->
+        <div class="section">
+            <div class="section-title">📊 Toutes les Cotes de la Ligue</div>
+            <div class="chart-container">
+                <div id="allOddsChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <!-- Section 2: Cotes par équipe -->
+        <div class="section">
+            <div class="section-title">🎯 Cotes d'une Équipe vs Moyenne Ligue</div>
+            <div class="team-selector">
+                <label for="teamSelect">Sélectionner équipe:</label>
+                <select id="teamSelect" onchange="loadTeamComparison()">
+                    <option value="">-- Choisir une équipe --</option>
+                </select>
+            </div>
+            <div id="teamComparisonDiv" style="display: none;">
+                <div class="chart-container">
+                    <div id="teamOddsChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Top and Bottom Cotes -->
+        <div class="section">
+            <div class="section-title">🔝 Les Cotes Extrêmes</div>
+            <div class="table-container">
+                <table id="oddsTableContainer">
+                    <thead>
+                        <tr>
+                            <th colspan="4" style="color: #34C759;">🔺 Les 5 Plus Hautes Cotes</th>
+                        </tr>
+                        <tr>
+                            <th>Type</th>
+                            <th>Cote</th>
+                            <th>Match</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="highestOdds"></tbody>
+                </table>
+                <table id="oddsTableContainer2" style="margin-top: 30px;">
+                    <thead>
+                        <tr>
+                            <th colspan="4" style="color: #FF3B30;">🔻 Les 5 Plus Basses Cotes</th>
+                        </tr>
+                        <tr>
+                            <th>Type</th>
+                            <th>Cote</th>
+                            <th>Match</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lowestOdds"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorBox" style="display: none;"></div>
+        <div id="loadingBox" style="display: none;"></div>
+    </div>
+
+    <script>
+        const currentLeague = "{{ current_league }}";
+        let allTeams = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+        });
+
+        function loadAllData() {
+            loadAllOdds();
+            loadExtremes();
+            loadTeams();
+        }
+
+        function loadTeams() {
+            fetch(`/api/stats/${currentLeague}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        allTeams = Object.keys(data.team_stats || {}).sort();
+                        const teamSelect = document.getElementById('teamSelect');
+                        teamSelect.innerHTML = '<option value="">-- Choisir une équipe --</option>';
+                        allTeams.forEach(team => {
+                            const opt = document.createElement('option');
+                            opt.value = team;
+                            opt.textContent = team;
+                            teamSelect.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(err => console.error('Teams error:', err));
+        }
+
+        function loadAllOdds() {
+            fetch(`/api/all-odds/${currentLeague}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        drawAllOddsChart(data.all_odds, data.odds_with_details);
+                    }
+                })
+                .catch(err => showError('Erreur: ' + err.message));
+        }
+
+        function drawAllOddsChart(odds, oddsDetails) {
+            if (!odds || odds.length === 0) {
+                showError('Aucune donnée disponible');
+                return;
+            }
+
+            // Créer les données pour le scatter plot
+            const xValues = [];
+            const yValues = [];
+            const hoverTexts = [];
+            const colors = [];
+            
+            const colorMap = {
+                'Domicile': '#34C759',
+                'Nul': '#FF9500',
+                'Extérieur': '#FF3B30'
+            };
+
+            oddsDetails.forEach((odd, index) => {
+                xValues.push(index);
+                yValues.push(odd.value);
+                hoverTexts.push(`<b>${odd.match}</b><br>Type: ${odd.type}<br>Cote: ${odd.value.toFixed(2)}<br>Date: ${odd.date}`);
+                colors.push(colorMap[odd.type] || '#CCCCCC');
+            });
+
+            const trace = {
+                x: xValues,
+                y: yValues,
+                mode: 'markers',
+                type: 'scatter',
+                marker: {
+                    size: 8,
+                    color: colors,
+                    opacity: 0.8,
+                    line: { color: 'rgba(255,255,255,0.3)', width: 1 }
+                },
+                hovertext: hoverTexts,
+                hoverinfo: 'text',
+                name: 'Cotes'
+            };
+
+            const layout = {
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#FFFFFF', family: 'Space Mono' },
+                xaxis: { title: 'Matches', showgrid: true, gridcolor: 'rgba(255,255,255,0.08)' },
+                yaxis: { title: 'Valeur de Cote', showgrid: true, gridcolor: 'rgba(255,255,255,0.08)' },
+                hovermode: 'closest',
+                margin: { b: 50, l: 50, r: 20, t: 20 }
+            };
+
+            try {
+                Plotly.newPlot('allOddsChart', [trace], layout, { responsive: true, displayModeBar: false });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function loadTeamComparison() {
+            const teamSelect = document.getElementById('teamSelect');
+            const team = teamSelect.value;
+
+            if (!team) {
+                document.getElementById('teamComparisonDiv').style.display = 'none';
+                return;
+            }
+
+            fetch(`/api/team-odds/${currentLeague}?team=${encodeURIComponent(team)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        drawOddsComparison(data);
+                        document.getElementById('teamComparisonDiv').style.display = 'block';
+                    }
+                })
+                .catch(err => showError('Erreur: ' + err.message));
+        }
+
+        function drawOddsComparison(data) {
+            const team = data.team;
+            const teamOdds = data.team_odds || [];
+            const avgLeague = data.league_avg || {};
+
+            const domicile = teamOdds.filter(o => o.type === 'Domicile').map(o => o.value);
+            const exterieur = teamOdds.filter(o => o.type === 'Extérieur').map(o => o.value);
+
+            const avgDomicile = avgLeague.domicile || 0;
+            const avgExterieur = avgLeague.exterieur || 0;
+
+            const trace1 = {
+                x: Array(domicile.length).fill('Domicile'),
+                y: domicile,
+                name: team,
+                type: 'box',
+                marker: { color: '#34C759' }
+            };
+
+            const trace2 = {
+                x: ['Domicile'],
+                y: [avgDomicile],
+                name: 'Moyenne Ligue',
+                type: 'scatter',
+                mode: 'markers',
+                marker: { size: 12, color: '#FF3B30', symbol: 'star' }
+            };
+
+            const trace3 = {
+                x: Array(exterieur.length).fill('Extérieur'),
+                y: exterieur,
+                name: team,
+                type: 'box',
+                marker: { color: '#FF3B30' },
+                showlegend: false
+            };
+
+            const trace4 = {
+                x: ['Extérieur'],
+                y: [avgExterieur],
+                name: 'Moyenne Ligue',
+                type: 'scatter',
+                mode: 'markers',
+                marker: { size: 12, color: '#FF3B30', symbol: 'star' },
+                showlegend: false
+            };
+
+            const layout = {
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#FFFFFF', family: 'Space Mono' },
+                yaxis: { title: 'Cote', showgrid: true, gridcolor: 'rgba(255,255,255,0.08)' },
+                hovermode: 'closest',
+                margin: { b: 50, l: 50, r: 20, t: 20 }
+            };
+
+            try {
+                Plotly.newPlot('teamOddsChart', [trace1, trace2, trace3, trace4], layout, { responsive: true, displayModeBar: false });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function loadExtremes() {
+            fetch(`/api/odds-extremes/${currentLeague}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        drawExtremesTable(data);
+                        hideError();
+                    }
+                })
+                .catch(err => showError('Erreur: ' + err.message));
+        }
+
+        function drawExtremesTable(data) {
+            const highestBody = document.getElementById('highestOdds');
+            highestBody.innerHTML = '';
+            data.highest.forEach(odd => {
+                const typeClass = odd.type.toLowerCase() === 'domicile' ? 'domicile' : 
+                                 odd.type.toLowerCase() === 'nul' ? 'nul' : 'ext';
+                const row = `<tr>
+                    <td><span class="type-${typeClass}">${odd.type}</span></td>
+                    <td class="odd-value">${odd.value.toFixed(2)}</td>
+                    <td>${odd.home} vs ${odd.away}</td>
+                    <td>${odd.date}</td>
+                </tr>`;
+                highestBody.innerHTML += row;
+            });
+
+            const lowestBody = document.getElementById('lowestOdds');
+            lowestBody.innerHTML = '';
+            data.lowest.forEach(odd => {
+                const typeClass = odd.type.toLowerCase() === 'domicile' ? 'domicile' : 
+                                 odd.type.toLowerCase() === 'nul' ? 'nul' : 'ext';
+                const row = `<tr>
+                    <td><span class="type-${typeClass}">${odd.type}</span></td>
+                    <td class="odd-value">${odd.value.toFixed(2)}</td>
+                    <td>${odd.home} vs ${odd.away}</td>
+                    <td>${odd.date}</td>
+                </tr>`;
+                lowestBody.innerHTML += row;
+            });
+        }
+
+        function showError(msg) {
+            document.getElementById('errorBox').innerHTML = `<div class="error-box">${msg}</div>`;
+            document.getElementById('errorBox').style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorBox').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

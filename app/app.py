@@ -483,6 +483,371 @@ def refresh_all():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/graphics")
+@app.route("/graphics/<league_id>")
+def graphics(league_id="ligue-1"):
+    """Page des graphiques et statistiques."""
+    try:
+        if league_id not in LEAGUES:
+            league_id = "ligue-1"
+
+        league_info = LEAGUES[league_id]
+    except Exception as e:
+        print(f"Erreur MongoDB : {e}")
+        league_info = LEAGUES["ligue-1"]
+
+    return render_template(
+        "graphics.html",
+        current_league=league_id,
+        league_info=league_info,
+        all_leagues=LEAGUES
+    )
+
+@app.route("/api/stats/<league_id>")
+def get_stats(league_id):
+    """API pour récupérer les statistiques d'une ligue"""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        matches = list(collection.find({"league_id": league_id}))
+        
+        # Statistiques par équipe
+        team_stats = {}
+        
+        for match in matches:
+            home_team = match.get('home_team')
+            away_team = match.get('away_team')
+            
+            # Initialiser les équipes
+            if home_team and home_team not in team_stats:
+                team_stats[home_team] = {'played': 0, 'wins': 0, 'draws': 0, 'losses': 0}
+            if away_team and away_team not in team_stats:
+                team_stats[away_team] = {'played': 0, 'wins': 0, 'draws': 0, 'losses': 0}
+            
+            # Compter seulement les matchs terminés
+            if match.get('is_finished'):
+                score_home = int(match.get('score_home', 0))
+                score_away = int(match.get('score_away', 0))
+                
+                if home_team:
+                    team_stats[home_team]['played'] += 1
+                    if score_home > score_away:
+                        team_stats[home_team]['wins'] += 1
+                    elif score_home == score_away:
+                        team_stats[home_team]['draws'] += 1
+                    else:
+                        team_stats[home_team]['losses'] += 1
+                
+                if away_team:
+                    team_stats[away_team]['played'] += 1
+                    if score_away > score_home:
+                        team_stats[away_team]['wins'] += 1
+                    elif score_away == score_home:
+                        team_stats[away_team]['draws'] += 1
+                    else:
+                        team_stats[away_team]['losses'] += 1
+        
+        # Stats générales
+        total_matches = len(matches)
+        finished = len([m for m in matches if m.get('is_finished')])
+        live = len([m for m in matches if m.get('is_live')])
+        
+        # Récupérer les cotes (avec les bons noms de champs)
+        odds_1 = []
+        odds_x = []
+        odds_2 = []
+        
+        for m in matches:
+            try:
+                if m.get('odd_1'):
+                    odds_1.append(float(m.get('odd_1')))
+                if m.get('odd_x'):
+                    odds_x.append(float(m.get('odd_x')))
+                if m.get('odd_2'):
+                    odds_2.append(float(m.get('odd_2')))
+            except:
+                pass
+        
+        return jsonify({
+            "status": "success",
+            "league_id": league_id,
+            "league_name": LEAGUES[league_id]['name'],
+            "summary": {
+                "total_matches": total_matches,
+                "finished": finished,
+                "live": live,
+                "upcoming": total_matches - finished - live
+            },
+            "team_stats": team_stats,
+            "odds": {
+                "avg_1": round(sum(odds_1) / len(odds_1), 2) if odds_1 else 0,
+                "avg_x": round(sum(odds_x) / len(odds_x), 2) if odds_x else 0,
+                "avg_2": round(sum(odds_2) / len(odds_2), 2) if odds_2 else 0,
+                "min_1": min(odds_1) if odds_1 else 0,
+                "max_1": max(odds_1) if odds_1 else 0,
+                "samples": len(odds_1)
+            }
+        })
+    except Exception as e:
+        print(f"Error in get_stats: {e}")
+        return jsonify({"error": str(e)}), 500
+        
+        return jsonify({
+            "status": "success",
+            "league_id": league_id,
+            "league_name": LEAGUES[league_id]['name'],
+            "summary": {
+                "total_matches": total_matches,
+                "finished": finished,
+                "live": live,
+                "upcoming": total_matches - finished - live
+            },
+            "team_stats": team_stats,
+            "odds": {
+                "avg_odds_1": round(sum(odds_1) / len(odds_1), 2) if odds_1 else 0,
+                "avg_odds_x": round(sum(odds_x) / len(odds_x), 2) if odds_x else 0,
+                "avg_odds_2": round(sum(odds_2) / len(odds_2), 2) if odds_2 else 0
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/odds-distribution/<league_id>")
+def get_odds_distribution(league_id):
+    """API pour récupérer la distribution des cotes"""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        matches = list(collection.find({"league_id": league_id}))
+        
+        odds_1 = []
+        odds_x = []
+        odds_2 = []
+        
+        for m in matches:
+            try:
+                if m.get('odd_1'):
+                    odds_1.append(float(m.get('odd_1')))
+                if m.get('odd_x'):
+                    odds_x.append(float(m.get('odd_x')))
+                if m.get('odd_2'):
+                    odds_2.append(float(m.get('odd_2')))
+            except:
+                pass
+        
+        return jsonify({
+            "status": "success",
+            "odds_1": odds_1,
+            "odds_x": odds_x,
+            "odds_2": odds_2
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/odds-extremes/<league_id>")
+def get_odds_extremes(league_id):
+    """API pour récupérer les 5 plus hautes et 5 plus basses cotes"""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        matches = list(collection.find({"league_id": league_id}))
+        
+        all_odds = []
+        
+        for m in matches:
+            # Ajouter chaque cote avec le contexte du match
+            try:
+                if m.get('odd_1'):
+                    all_odds.append({
+                        'value': float(m.get('odd_1')),
+                        'type': 'Domicile',
+                        'home': m.get('home_team'),
+                        'away': m.get('away_team'),
+                        'date': m.get('date', '')
+                    })
+            except:
+                pass
+            try:
+                if m.get('odd_x'):
+                    all_odds.append({
+                        'value': float(m.get('odd_x')),
+                        'type': 'Nul',
+                        'home': m.get('home_team'),
+                        'away': m.get('away_team'),
+                        'date': m.get('date', '')
+                    })
+            except:
+                pass
+            try:
+                if m.get('odd_2'):
+                    all_odds.append({
+                        'value': float(m.get('odd_2')),
+                        'type': 'Extérieur',
+                        'home': m.get('home_team'),
+                        'away': m.get('away_team'),
+                        'date': m.get('date', '')
+                    })
+            except:
+                pass
+        
+        # Trier et récupérer les extrêmes
+        sorted_low = sorted(all_odds, key=lambda x: x['value'])[:5]
+        sorted_high = sorted(all_odds, key=lambda x: x['value'], reverse=True)[:5]
+        
+        return jsonify({
+            "status": "success",
+            "lowest": sorted_low,
+            "highest": sorted_high,
+            "total_odds": len(all_odds)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/team-odds/<league_id>")
+def get_team_odds(league_id):
+    """API pour récupérer toutes les cotes d'une équipe et la moyenne de la ligue"""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        team = request.args.get("team", "").strip()
+        if not team:
+            return jsonify({"error": "Paramètre 'team' manquant"}), 400
+
+        matches = list(collection.find({"league_id": league_id}))
+        
+        # Récupérer les cotes de l'équipe
+        team_odds = []
+        for m in matches:
+            is_home = m.get('home_team') == team
+            is_away = m.get('away_team') == team
+            
+            if is_home:
+                try:
+                    if m.get('odd_1'):
+                        team_odds.append({
+                            'value': float(m.get('odd_1')),
+                            'type': 'Domicile',
+                            'vs': m.get('away_team'),
+                            'date': m.get('date', '')
+                        })
+                except:
+                    pass
+            elif is_away:
+                try:
+                    if m.get('odd_2'):
+                        team_odds.append({
+                            'value': float(m.get('odd_2')),
+                            'type': 'Extérieur',
+                            'vs': m.get('home_team'),
+                            'date': m.get('date', '')
+                        })
+                except:
+                    pass
+        
+        # Calculer les moyennes de la ligue
+        all_odds_1 = []
+        all_odds_x = []
+        all_odds_2 = []
+        for m in matches:
+            try:
+                if m.get('odd_1'):
+                    all_odds_1.append(float(m.get('odd_1')))
+                if m.get('odd_x'):
+                    all_odds_x.append(float(m.get('odd_x')))
+                if m.get('odd_2'):
+                    all_odds_2.append(float(m.get('odd_2')))
+            except:
+                pass
+        
+        league_avg = {
+            'domicile': round(sum(all_odds_1) / len(all_odds_1), 2) if all_odds_1 else 0,
+            'nul': round(sum(all_odds_x) / len(all_odds_x), 2) if all_odds_x else 0,
+            'exterieur': round(sum(all_odds_2) / len(all_odds_2), 2) if all_odds_2 else 0
+        }
+        
+        return jsonify({
+            "status": "success",
+            "team": team,
+            "team_odds": team_odds,
+            "league_avg": league_avg
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/all-odds/<league_id>")
+def get_all_odds(league_id):
+    """API pour récupérer toutes les cotes de la ligue avec détails des matchs"""
+    try:
+        if league_id not in LEAGUES:
+            return jsonify({"error": "Ligue inconnue"}), 400
+
+        matches = list(collection.find({"league_id": league_id}))
+        
+        all_odds = []
+        odds_with_details = []
+        
+        for m in matches:
+            try:
+                home = m.get('home_team', 'N/A')
+                away = m.get('away_team', 'N/A')
+                date = m.get('date', 'N/A')
+                
+                if m.get('odd_1'):
+                    odd_val = float(m.get('odd_1'))
+                    all_odds.append(odd_val)
+                    odds_with_details.append({
+                        "value": odd_val,
+                        "home": home,
+                        "away": away,
+                        "type": "Domicile",
+                        "date": date,
+                        "match": f"{home} vs {away}"
+                    })
+                
+                if m.get('odd_x'):
+                    odd_val = float(m.get('odd_x'))
+                    all_odds.append(odd_val)
+                    odds_with_details.append({
+                        "value": odd_val,
+                        "home": home,
+                        "away": away,
+                        "type": "Nul",
+                        "date": date,
+                        "match": f"{home} vs {away}"
+                    })
+                
+                if m.get('odd_2'):
+                    odd_val = float(m.get('odd_2'))
+                    all_odds.append(odd_val)
+                    odds_with_details.append({
+                        "value": odd_val,
+                        "home": home,
+                        "away": away,
+                        "type": "Extérieur",
+                        "date": date,
+                        "match": f"{home} vs {away}"
+                    })
+            except:
+                pass
+        
+        all_odds_sorted = sorted(all_odds)
+        
+        return jsonify({
+            "status": "success",
+            "all_odds": all_odds_sorted,
+            "odds_with_details": odds_with_details,
+            "min": min(all_odds) if all_odds else 0,
+            "max": max(all_odds) if all_odds else 0,
+            "avg": round(sum(all_odds) / len(all_odds), 2) if all_odds else 0,
+            "count": len(all_odds)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/status")
 def get_status():
     """API pour vérifier le statut du scraping"""

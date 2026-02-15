@@ -190,7 +190,7 @@ Vous devriez voir 3 containers "Up" :
 
 ### Accéder au site
 
-Ouvrez votre navigateur :
+Ouvrez votre navigateur et patientez le temps du chargement :
 ```
 http://localhost:8000
 ```
