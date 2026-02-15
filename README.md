@@ -135,7 +135,7 @@ OddsPortal.com
 - **8000** - Application Flask
 - **27017** - MongoDB
 
-⚠️ Assurez-vous que ces ports sont libres avant de lancer l'application.
+ Assurez-vous que ces ports sont libres avant de lancer l'application.
 
 ---
 
@@ -173,6 +173,7 @@ environment:
 
 ```bash
 # 1. Construire et démarrer tous les containers
+docker-compose build
 docker-compose up -d
 
 # 2. Attendre 30 secondes que le scraping initial se termine

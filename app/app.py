@@ -71,7 +71,7 @@ def initial_scrape():
         
         # Lancer le scraping de toutes les ligues
         update_scraping_status("scraping", "Scraping des ligues en cours...", 20)
-        print("[INIT] 📡 Lancement du scraping de toutes les ligues...")
+        print("[INIT] Lancement du scraping de toutes les ligues...")
         
         result = subprocess.run(
             ["python", "scraper/scraper_mongo.py"],
@@ -81,27 +81,27 @@ def initial_scrape():
         )
         
         if result.returncode == 0:
-            print("[INIT] ✅ Scraping initial terminé avec succès")
+            print("[INIT]  Scraping initial terminé avec succès")
             print(result.stdout)
             update_scraping_status("ready", "Données chargées avec succès", 100)
         else:
-            print(f"[INIT] ⚠️ Scraping terminé avec des erreurs (code {result.returncode})")
+            print(f"[INIT] Scraping terminé avec des erreurs (code {result.returncode})")
             print(result.stderr)
             update_scraping_status("ready", "Données partiellement chargées", 100)
         
         initial_scraping_done = True
         
     except subprocess.TimeoutExpired:
-        print("[INIT] ⏰ Timeout du scraping initial (5 minutes)")
+        print("[INIT]  Timeout du scraping initial (5 minutes)")
         update_scraping_status("ready", "Timeout - Données partielles", 100)
         initial_scraping_done = True
     except Exception as e:
-        print(f"[INIT] ❌ Erreur lors du scraping initial: {e}")
+        print(f"[INIT]  Erreur lors du scraping initial: {e}")
         update_scraping_status("ready", f"Erreur: {str(e)[:50]}", 100)
         initial_scraping_done = True
     finally:
         scraping_in_progress = False
-        print("=" * 60)
+
 
 def start_background_scraping():
     """Démarrer le scraping en arrière-plan toutes les 3 minutes"""
@@ -110,7 +110,7 @@ def start_background_scraping():
         while not initial_scraping_done:
             time.sleep(5)
         
-        print("[BACKGROUND] 🔄 Scraping automatique activé (toutes les 3 minutes)")
+        print("[BACKGROUND]  Scraping automatique activé (toutes les 3 minutes)")
         
         while True:
             time.sleep(180)  # 3 minutes
@@ -119,20 +119,20 @@ def start_background_scraping():
                 print("[BACKGROUND] Scraping déjà en cours, skip...")
                 continue
             
-            print("[BACKGROUND] 🔄 Scraping automatique...")
+            print("[BACKGROUND]  Scraping automatique...")
             try:
                 subprocess.run(
                     ["python", "scraper/scraper_mongo.py"],
                     timeout=120,
                     capture_output=True
                 )
-                print("[BACKGROUND] ✅ Scraping automatique terminé")
+                print("[BACKGROUND]  Scraping automatique terminé")
                 
                 # Mettre à jour les résultats des paris après chaque scraping
                 update_bets_results()
                 
             except Exception as e:
-                print(f"[BACKGROUND] ⚠️ Erreur: {e}")
+                print(f"[BACKGROUND]  Erreur: {e}")
     
     thread = threading.Thread(target=scrape_loop, daemon=True)
     thread.start()
@@ -503,11 +503,8 @@ if __name__ == "__main__":
     start_background_scraping()
     
     # Démarrer Flask
-    print("=" * 60)
-    print("🔥 FOC - First On Cotes")
-    print("=" * 60)
-    print("📡 Scraping initial en cours...")
-    print("🔄 Auto-refresh: toutes les 3 minutes")
+    print("FOC - First On Cotes")
+    print("Scraping initial en cours...")
+    print("Auto-refresh: toutes les 3 minutes")
     print("⚡ Actualisation rapide: toutes les 10 secondes")
-    print("=" * 60)
     app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
